@@ -25,6 +25,11 @@ endif
 if !exists('g:diminactive')
   let g:diminactive = 1
 endif
+
+" Maximum number of entries in &colorcolumn, when &wrap is enabled.
+if !exists('g:diminactive_max_cols')
+  let g:diminactive_max_cols = 256
+endif
 " }}}1
 
 " Functions {{{1
@@ -62,7 +67,7 @@ fun! s:Leave(...)
     " of columns getting highlighted. This might get calculated by
     " looking for the longest visible line and using a multiple of
     " winwidth().
-    let l:width=256 " max
+    let l:width=g:diminactive_max_cols
   else
     let l:width=winwidth(winnr)
   endif
