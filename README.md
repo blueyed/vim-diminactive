@@ -10,6 +10,8 @@ It is based on an [idea from Paul Isambert][1], which got turned into a
 [StackOverflow answer][2] and then into a plugin, incorporating the
 suggestions made by joeytwiddle.
 
+![Screenshot](screenshot.png)
+
 ## Caveats
 * It tends to slow down redrawing of windows.
 * It will only work with lines containing text (i.e. not `~` (non-lines)).
