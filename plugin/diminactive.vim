@@ -50,7 +50,8 @@ endfun
 " Setup 'colorcolumn' in the given window.
 fun! s:Leave(...)
   let winnr = a:0 ? a:1 : winnr()
-  if getwinvar(winnr, '&colorcolumn', '') != ''
+  " NOTE: default return value for getwinvar requires Vim v7-3-831.
+  if getwinvar(winnr, '&colorcolumn') != ''
     " Dimmed already.
     return
   endif
