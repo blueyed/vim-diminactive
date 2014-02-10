@@ -37,11 +37,12 @@ endif
 " Setup windows: call s:Enter/s:Leave on all windows.
 " With g:diminactive=0, it will call s:Enter on all of them.
 fun! s:SetupWindows(...)
+  let force = a:0 ? a:1 : 0
   for i in range(1, tabpagewinnr(tabpagenr(), '$'))
     if !g:diminactive || i == winnr()
       call s:Enter(i)
     else
-      call s:Leave(i)
+      call s:Leave(i, force)
     endif
   endfor
 endfun
@@ -55,11 +56,21 @@ endfun
 " Setup 'colorcolumn' in the given window.
 fun! s:Leave(...)
   let winnr = a:0 ? a:1 : winnr()
-  " NOTE: default return value for getwinvar requires Vim v7-3-831.
-  if getwinvar(winnr, '&colorcolumn') != ''
-    " Dimmed already.
-    return
+  let force = a:0>1 ? a:2 : 0
+
+  " NOTE: default return value for `getwinvar` requires Vim v7-3-831.
+  if ! force
+    let cur_cuc = getwinvar(winnr, '&colorcolumn')
+    if cur_cuc!= ''
+      let lastcomma = strridx(cur_cuc, ',')
+      let lastcol = strpart(cur_cuc, lastcomma+1)
+      if lastcol == winwidth(winnr)
+        " Dimmed already.
+        return
+      endif
+    endif
   endif
+
   let l:range = ""
   let wrap = getwinvar(winnr, '&wrap')
   if wrap
@@ -83,10 +94,12 @@ fun! s:Setup(...)
   augroup DimInactive
     au!
     if g:diminactive
-      au WinLeave * call s:Leave()
+      au WinLeave          * call s:Leave()
       " NOTES: WinEnter is not triggered for a second ':h foo'
       au WinEnter,BufEnter * call s:Enter()
+      au VimResized        * call s:SetupWindows()
     endif
+
     " Delegate window setup to VimEnter event on startup.
     if has('vim_starting')
       au VimEnter * call s:SetupWindows()
@@ -103,7 +116,7 @@ command! DimInactiveOff     call s:Setup(0)
 command! DimInactiveToggle  call s:Setup(!g:diminactive)
 
 " Useful/necessary after window layout (width) changed.
-command! DimInactiveRefresh call s:SetupWindows()
+command! DimInactiveRefresh call s:SetupWindows(1)
 " }}}1
 
 call s:Setup()
