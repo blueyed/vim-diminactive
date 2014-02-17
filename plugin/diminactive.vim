@@ -27,6 +27,7 @@ if !exists('g:diminactive')
 endif
 
 " Maximum number of entries in &colorcolumn, when &wrap is enabled.
+" NOTE: A maximum of 256 columns are highlighted.
 if !exists('g:diminactive_max_cols')
   let g:diminactive_max_cols = 256
 endif
