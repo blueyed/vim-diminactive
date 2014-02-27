@@ -49,6 +49,7 @@ endif
 " Setup windows: call s:Enter/s:Leave on all windows.
 " With g:diminactive=0, it will call s:Enter on all of them.
 fun! s:SetupWindows(...)
+  call s:Debug('SetupWindows')
   let force = a:0 ? a:1 : 0
   for i in range(1, tabpagewinnr(tabpagenr(), '$'))
     if !g:diminactive || i == winnr()
@@ -59,10 +60,25 @@ fun! s:SetupWindows(...)
   endfor
 endfun
 
-" Reset 'colorcolumn' in the given window.
+" Restore 'colorcolumn' in the given window.
 fun! s:Enter(...)
   let winnr = a:0 ? a:1 : winnr()
-  call setwinvar(winnr, '&colorcolumn', '')
+
+  " Only do this once: it might be called for both BufEnter and WinEnter.
+  if getwinvar(winnr, 'diminactive_entered')
+    call s:Debug('Already entered', winnr)
+    return
+  endif
+  call setwinvar(winnr, 'diminactive_entered', 1)
+
+  if ! getwinvar(winnr, 'diminactive_stored_orig')
+    call s:Debug('Enter: nothing to restore.')
+    return
+  endif
+
+  let orig_cuc = getwinvar(winnr, 'diminactive_orig_cuc')
+  call s:Debug('Enter: restoring for', winnr, orig_cuc)
+  call setwinvar(winnr, '&colorcolumn', orig_cuc)
 endfun
 
 " Setup 'colorcolumn' in the given window.
@@ -70,14 +86,21 @@ fun! s:Leave(...)
   let winnr = a:0 ? a:1 : winnr()
   let force = a:0>1 ? a:2 : 0
 
+  call setwinvar(winnr, 'diminactive_entered', 0)
+  call setwinvar(winnr, 'diminactive_orig_cuc', getwinvar(winnr, '&colorcolumn'))
+  call setwinvar(winnr, 'diminactive_stored_orig', 1)
+
   " NOTE: default return value for `getwinvar` requires Vim v7-3-831.
+  let cur_cuc = getwinvar(winnr, '&colorcolumn')
+
+  call s:Debug('Leave', winnr, cur_cuc)
   if ! force
-    let cur_cuc = getwinvar(winnr, '&colorcolumn')
     if cur_cuc!= ''
       let lastcomma = strridx(cur_cuc, ',')
       let lastcol = strpart(cur_cuc, lastcomma+1)
       if lastcol == winwidth(winnr)
         " Dimmed already.
+        call s:Debug('Dimmed already.')
         return
       endif
     endif
