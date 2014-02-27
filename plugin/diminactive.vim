@@ -26,6 +26,17 @@ if !exists('g:diminactive')
   let g:diminactive = 1
 endif
 
+if !exists('g:diminactive_debug')
+  let g:diminactive_debug = 0
+endif
+
+fun! s:Debug(...)
+  if ! g:diminactive_debug
+    return
+  endif
+  echom string(a:000)
+endfun
+
 " Maximum number of entries in &colorcolumn, when &wrap is enabled.
 " NOTE: A maximum of 256 columns are highlighted.
 if !exists('g:diminactive_max_cols')
