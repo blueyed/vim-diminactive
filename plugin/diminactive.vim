@@ -79,6 +79,8 @@ fun! s:Enter(...)
   let orig_cuc = getwinvar(winnr, 'diminactive_orig_cuc')
   call s:Debug('Enter: restoring for', winnr, orig_cuc)
   call setwinvar(winnr, '&colorcolumn', orig_cuc)
+  " After restoring the original setting, pick up any user changes again.
+  call setwinvar(winnr, 'diminactive_stored_orig', 0)
 endfun
 
 " Setup 'colorcolumn' in the given window.
@@ -87,8 +89,15 @@ fun! s:Leave(...)
   let force = a:0>1 ? a:2 : 0
 
   call setwinvar(winnr, 'diminactive_entered', 0)
-  call setwinvar(winnr, 'diminactive_orig_cuc', getwinvar(winnr, '&colorcolumn'))
-  call setwinvar(winnr, 'diminactive_stored_orig', 1)
+
+  " Store original &colorcolumn setting, but not on VimResized / until we have
+  " entered the buffer again.
+  if ! getwinvar(winnr, 'diminactive_stored_orig')
+    let orig_cuc = getwinvar(winnr, '&colorcolumn')
+    call s:Debug('Leave: storing orig setting', orig_cuc)
+    call setwinvar(winnr, 'diminactive_orig_cuc', orig_cuc)
+    call setwinvar(winnr, 'diminactive_stored_orig', 1)
+  endif
 
   " NOTE: default return value for `getwinvar` requires Vim v7-3-831.
   let cur_cuc = getwinvar(winnr, '&colorcolumn')
@@ -106,6 +115,7 @@ fun! s:Leave(...)
     endif
   endif
 
+  " Build &colorcolumn setting.
   let l:range = ""
   let wrap = getwinvar(winnr, '&wrap')
   if wrap
