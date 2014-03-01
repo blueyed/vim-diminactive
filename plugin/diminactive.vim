@@ -69,7 +69,7 @@ fun! s:Enter(...)
     call s:Debug('Already entered', winnr)
     return
   endif
-  call setwinvar(winnr, 'diminactive_entered', 1)
+  call settabwinvar(tabpagenr(), winnr, 'diminactive_entered', 1)
 
   if ! gettabwinvar(tabpagenr(), winnr, 'diminactive_stored_orig')
     call s:Debug('Enter: nothing to restore.')
@@ -78,9 +78,9 @@ fun! s:Enter(...)
 
   let orig_cuc = gettabwinvar(tabpagenr(), winnr, 'diminactive_orig_cuc')
   call s:Debug('Enter: restoring for', winnr, orig_cuc)
-  call setwinvar(winnr, '&colorcolumn', orig_cuc)
+  call settabwinvar(tabpagenr(), winnr, '&colorcolumn', orig_cuc)
   " After restoring the original setting, pick up any user changes again.
-  call setwinvar(winnr, 'diminactive_stored_orig', 0)
+  call settabwinvar(tabpagenr(), winnr, 'diminactive_stored_orig', 0)
 endfun
 
 " Setup 'colorcolumn' in the given window.
@@ -88,15 +88,15 @@ fun! s:Leave(...)
   let winnr = a:0 ? a:1 : winnr()
   let force = a:0>1 ? a:2 : 0
 
-  call setwinvar(winnr, 'diminactive_entered', 0)
+  call settabwinvar(tabpagenr(), winnr, 'diminactive_entered', 0)
 
   " Store original &colorcolumn setting, but not on VimResized / until we have
   " entered the buffer again.
   if ! gettabwinvar(tabpagenr(), winnr, 'diminactive_stored_orig')
     let orig_cuc = gettabwinvar(tabpagenr(), winnr, '&colorcolumn')
     call s:Debug('Leave: storing orig setting', orig_cuc)
-    call setwinvar(winnr, 'diminactive_orig_cuc', orig_cuc)
-    call setwinvar(winnr, 'diminactive_stored_orig', 1)
+    call settabwinvar(tabpagenr(), winnr, 'diminactive_orig_cuc', orig_cuc)
+    call settabwinvar(tabpagenr(), winnr, 'diminactive_stored_orig', 1)
   endif
 
   " NOTE: default return value for `gettabwinvar` requires Vim v7-3-831.
@@ -128,7 +128,7 @@ fun! s:Leave(...)
     let l:width=winwidth(winnr)
   endif
   let l:range = join(range(1, l:width), ',')
-  call setwinvar(winnr, '&colorcolumn', l:range)
+  call settabwinvar(tabpagenr(), winnr, '&colorcolumn', l:range)
 endfun
 
 " Setup autocommands and init dimming.
