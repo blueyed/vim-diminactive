@@ -65,18 +65,18 @@ fun! s:Enter(...)
   let winnr = a:0 ? a:1 : winnr()
 
   " Only do this once: it might be called for both BufEnter and WinEnter.
-  if getwinvar(winnr, 'diminactive_entered')
+  if gettabwinvar(tabpagenr(), winnr, 'diminactive_entered')
     call s:Debug('Already entered', winnr)
     return
   endif
   call setwinvar(winnr, 'diminactive_entered', 1)
 
-  if ! getwinvar(winnr, 'diminactive_stored_orig')
+  if ! gettabwinvar(tabpagenr(), winnr, 'diminactive_stored_orig')
     call s:Debug('Enter: nothing to restore.')
     return
   endif
 
-  let orig_cuc = getwinvar(winnr, 'diminactive_orig_cuc')
+  let orig_cuc = gettabwinvar(tabpagenr(), winnr, 'diminactive_orig_cuc')
   call s:Debug('Enter: restoring for', winnr, orig_cuc)
   call setwinvar(winnr, '&colorcolumn', orig_cuc)
   " After restoring the original setting, pick up any user changes again.
@@ -92,15 +92,15 @@ fun! s:Leave(...)
 
   " Store original &colorcolumn setting, but not on VimResized / until we have
   " entered the buffer again.
-  if ! getwinvar(winnr, 'diminactive_stored_orig')
-    let orig_cuc = getwinvar(winnr, '&colorcolumn')
+  if ! gettabwinvar(tabpagenr(), winnr, 'diminactive_stored_orig')
+    let orig_cuc = gettabwinvar(tabpagenr(), winnr, '&colorcolumn')
     call s:Debug('Leave: storing orig setting', orig_cuc)
     call setwinvar(winnr, 'diminactive_orig_cuc', orig_cuc)
     call setwinvar(winnr, 'diminactive_stored_orig', 1)
   endif
 
-  " NOTE: default return value for `getwinvar` requires Vim v7-3-831.
-  let cur_cuc = getwinvar(winnr, '&colorcolumn')
+  " NOTE: default return value for `gettabwinvar` requires Vim v7-3-831.
+  let cur_cuc = gettabwinvar(tabpagenr(), winnr, '&colorcolumn')
 
   call s:Debug('Leave', winnr, cur_cuc)
   if ! force
@@ -117,7 +117,7 @@ fun! s:Leave(...)
 
   " Build &colorcolumn setting.
   let l:range = ""
-  let wrap = getwinvar(winnr, '&wrap')
+  let wrap = gettabwinvar(tabpagenr(), winnr, '&wrap')
   if wrap
     " HACK: when wrapping lines is enabled, we use the maximum number
     " of columns getting highlighted. This might get calculated by
