@@ -64,21 +64,12 @@ endfun
 fun! s:Enter(...)
   let winnr = a:0 ? a:1 : winnr()
 
-  " Only do this once: it might be called for both BufEnter and WinEnter.
-  if gettabwinvar(tabpagenr(), winnr, 'diminactive_entered')
-    call s:Debug('Already entered', winnr)
-    return
-  endif
-  call settabwinvar(tabpagenr(), winnr, 'diminactive_entered', 1)
-
-  if ! gettabwinvar(tabpagenr(), winnr, 'diminactive_stored_orig')
-    call s:Debug('Enter: nothing to restore.')
-    return
-  endif
-
-  let orig_cuc = gettabwinvar(tabpagenr(), winnr, 'diminactive_orig_cuc')
-  call s:Debug('Enter: restoring for', winnr, orig_cuc)
-  call settabwinvar(tabpagenr(), winnr, '&colorcolumn', orig_cuc)
+  " Set colorcolumn: falls back to "", which is required, when an existing
+  " buffer gets opened again in a new window: Vim then uses the last
+  " colorcolumn setting (which might come from our s:Leave!)
+  let cuc = gettabwinvar(tabpagenr(), winnr, 'diminactive_orig_cuc')
+  call s:Debug('Enter: restoring for', tabpagenr(), winnr, cuc)
+  call settabwinvar(tabpagenr(), winnr, '&colorcolumn', cuc)
   " After restoring the original setting, pick up any user changes again.
   call settabwinvar(tabpagenr(), winnr, 'diminactive_stored_orig', 0)
 endfun
@@ -88,13 +79,11 @@ fun! s:Leave(...)
   let winnr = a:0 ? a:1 : winnr()
   let force = a:0>1 ? a:2 : 0
 
-  call settabwinvar(tabpagenr(), winnr, 'diminactive_entered', 0)
-
   " Store original &colorcolumn setting, but not on VimResized / until we have
   " entered the buffer again.
   if ! gettabwinvar(tabpagenr(), winnr, 'diminactive_stored_orig')
     let orig_cuc = gettabwinvar(tabpagenr(), winnr, '&colorcolumn')
-    call s:Debug('Leave: storing orig setting', orig_cuc)
+    call s:Debug('Leave: storing orig setting for', tabpagenr(), winnr)
     call settabwinvar(tabpagenr(), winnr, 'diminactive_orig_cuc', orig_cuc)
     call settabwinvar(tabpagenr(), winnr, 'diminactive_stored_orig', 1)
   endif
@@ -102,21 +91,8 @@ fun! s:Leave(...)
   " NOTE: default return value for `gettabwinvar` requires Vim v7-3-831.
   let cur_cuc = gettabwinvar(tabpagenr(), winnr, '&colorcolumn')
 
-  call s:Debug('Leave', winnr, cur_cuc)
-  if ! force
-    if cur_cuc!= ''
-      let lastcomma = strridx(cur_cuc, ',')
-      let lastcol = strpart(cur_cuc, lastcomma+1)
-      if lastcol == winwidth(winnr)
-        " Dimmed already.
-        call s:Debug('Dimmed already.')
-        return
-      endif
-    endif
-  endif
+  call s:Debug('Leave', tabpagenr(), winnr, cur_cuc)
 
-  " Build &colorcolumn setting.
-  let l:range = ""
   let wrap = gettabwinvar(tabpagenr(), winnr, '&wrap')
   if wrap
     " HACK: when wrapping lines is enabled, we use the maximum number
@@ -125,9 +101,18 @@ fun! s:Leave(...)
     " winwidth().
     let l:width=g:diminactive_max_cols
   else
-    let l:width=winwidth(winnr)
+    " let l:width=winwidth(winnr)
+    " Use window width for number of columns to dim.
+    " This is too much with vertical splits, but I assume Vim to be smart
+    " enough, so that won't have a negative impact on performance.
+    " This has the benefit that window re-arrangement should not cause windows
+    " to be not fully dimmed anymore.
+    let l:width = &columns
   endif
+
+  " Build &colorcolumn setting.
   let l:range = join(range(1, l:width), ',')
+  call s:Debug('Dimming', tabpagenr(), winnr)
   call settabwinvar(tabpagenr(), winnr, '&colorcolumn', l:range)
 endfun
 
@@ -139,10 +124,14 @@ fun! s:Setup(...)
   augroup DimInactive
     au!
     if g:diminactive
-      au WinLeave          * call s:Leave()
-      " NOTES: WinEnter is not triggered for a second ':h foo'
-      au WinEnter,BufEnter * call s:Enter()
-      au VimResized        * call s:SetupWindows()
+      au WinLeave             * call s:Leave()
+      " Using BufWinEnter additionally, because otherwise an existing buffer
+      " in a new (tab) window will be dimmed. Somehow the &colorcolumn gets
+      " re-used then (Vim 7.4.192).
+      " NOTE: previously used BufEnter, but that might be too much / not
+      " required.
+      au WinEnter,BufWinEnter * call s:Enter()
+      au VimResized           * call s:SetupWindows()
     endif
 
     " Delegate window setup to VimEnter event on startup.
