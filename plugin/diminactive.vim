@@ -26,22 +26,33 @@ if !exists('g:diminactive')
   let g:diminactive = 1
 endif
 
+" Callback to decide if a window should get dimmed. {{{2
+" The default disables dimming for &diff windows.
+if !exists('g:DimInactiveCallback')
+  fun! DimInactiveCallback(tabnr, winnr)
+    if gettabwinvar(a:tabnr, a:winnr, '&diff')
+      return 0
+    endif
+    return 1
+  endfun
+endif
+
 if !exists('g:diminactive_debug')
   let g:diminactive_debug = 0
 endif
 
+" Maximum number of entries in &colorcolumn, when &wrap is enabled.
+" NOTE: A maximum of 256 columns can be highlighted (Vim limitation; 7.4.192).
+if !exists('g:diminactive_max_cols')
+  let g:diminactive_max_cols = 256
+endif
+" Debug helper {{{2
 fun! s:Debug(...)
   if ! g:diminactive_debug
     return
   endif
   echom string(a:000)
 endfun
-
-" Maximum number of entries in &colorcolumn, when &wrap is enabled.
-" NOTE: A maximum of 256 columns are highlighted.
-if !exists('g:diminactive_max_cols')
-  let g:diminactive_max_cols = 256
-endif
 " }}}1
 
 " Functions {{{1
@@ -49,13 +60,13 @@ endif
 " Setup windows: call s:Enter/s:Leave on all windows.
 " With g:diminactive=0, it will call s:Enter on all of them.
 fun! s:SetupWindows(...)
+  let tabnr = a:0 ? a:1 : tabpagenr()
   call s:Debug('SetupWindows')
-  let force = a:0 ? a:1 : 0
-  for i in range(1, tabpagewinnr(tabpagenr(), '$'))
+  for i in range(1, tabpagewinnr(tabnr, '$'))
     if !g:diminactive || i == winnr()
       call s:Enter(i)
     else
-      call s:Leave(i, force)
+      call s:Leave(i)
     endif
   endfor
 endfun
@@ -63,37 +74,47 @@ endfun
 " Restore 'colorcolumn' in the given window.
 fun! s:Enter(...)
   let winnr = a:0 ? a:1 : winnr()
+  let tabnr = a:0 > 1 ? a:2 : tabpagenr()
 
   " Set colorcolumn: falls back to "", which is required, when an existing
   " buffer gets opened again in a new window: Vim then uses the last
   " colorcolumn setting (which might come from our s:Leave!)
-  let cuc = gettabwinvar(tabpagenr(), winnr, 'diminactive_orig_cuc')
-  call s:Debug('Enter: restoring for', tabpagenr(), winnr, cuc)
-  call settabwinvar(tabpagenr(), winnr, '&colorcolumn', cuc)
+  let cuc = gettabwinvar(tabnr, winnr, 'diminactive_orig_cuc')
+  call s:Debug('Enter: restoring for', tabnr, winnr, cuc)
+  call settabwinvar(tabnr, winnr, '&colorcolumn', cuc)
   " After restoring the original setting, pick up any user changes again.
-  call settabwinvar(tabpagenr(), winnr, 'diminactive_stored_orig', 0)
+  call settabwinvar(tabnr, winnr, 'diminactive_stored_orig', 0)
 endfun
 
 " Setup 'colorcolumn' in the given window.
 fun! s:Leave(...)
   let winnr = a:0 ? a:1 : winnr()
-  let force = a:0>1 ? a:2 : 0
+  let tabnr = a:0 > 1 ? a:2 : tabpagenr()
+
+  let cb_r = 1
+  if exists("*DimInactiveCallback")
+    let cb_r = DimInactiveCallback(tabnr, winnr)
+    if !cb_r
+      call s:Debug('Callback returned '.string(cb_r).': not dimming', tabnr, winnr)
+      return
+    endif
+  endif
 
   " Store original &colorcolumn setting, but not on VimResized / until we have
   " entered the buffer again.
-  if ! gettabwinvar(tabpagenr(), winnr, 'diminactive_stored_orig')
-    let orig_cuc = gettabwinvar(tabpagenr(), winnr, '&colorcolumn')
-    call s:Debug('Leave: storing orig setting for', tabpagenr(), winnr)
-    call settabwinvar(tabpagenr(), winnr, 'diminactive_orig_cuc', orig_cuc)
-    call settabwinvar(tabpagenr(), winnr, 'diminactive_stored_orig', 1)
+  if ! gettabwinvar(tabnr, winnr, 'diminactive_stored_orig')
+    let orig_cuc = gettabwinvar(tabnr, winnr, '&colorcolumn')
+    call s:Debug('Leave: storing orig setting for', tabnr, winnr)
+    call settabwinvar(tabnr, winnr, 'diminactive_orig_cuc', orig_cuc)
+    call settabwinvar(tabnr, winnr, 'diminactive_stored_orig', 1)
   endif
 
   " NOTE: default return value for `gettabwinvar` requires Vim v7-3-831.
-  let cur_cuc = gettabwinvar(tabpagenr(), winnr, '&colorcolumn')
+  let cur_cuc = gettabwinvar(tabnr, winnr, '&colorcolumn')
 
-  call s:Debug('Leave', tabpagenr(), winnr, cur_cuc)
+  call s:Debug('Leave', tabnr, winnr, cur_cuc)
 
-  let wrap = gettabwinvar(tabpagenr(), winnr, '&wrap')
+  let wrap = gettabwinvar(tabnr, winnr, '&wrap')
   if wrap
     " HACK: when wrapping lines is enabled, we use the maximum number
     " of columns getting highlighted. This might get calculated by
@@ -112,8 +133,8 @@ fun! s:Leave(...)
 
   " Build &colorcolumn setting.
   let l:range = join(range(1, l:width), ',')
-  call s:Debug('Dimming', tabpagenr(), winnr)
-  call settabwinvar(tabpagenr(), winnr, '&colorcolumn', l:range)
+  call s:Debug('Dimming', tabnr, winnr)
+  call settabwinvar(tabnr, winnr, '&colorcolumn', l:range)
 endfun
 
 " Setup autocommands and init dimming.
@@ -121,6 +142,12 @@ fun! s:Setup(...)
   if a:0
     let g:diminactive = a:1
   endif
+  " Delegate window setup to VimEnter event on startup.
+  if has('vim_starting')
+    au VimEnter * call s:Setup()
+    return
+  endif
+
   augroup DimInactive
     au!
     if g:diminactive
@@ -134,12 +161,12 @@ fun! s:Setup(...)
       au VimResized           * call s:SetupWindows()
     endif
 
-    " Delegate window setup to VimEnter event on startup.
-    if has('vim_starting')
-      au VimEnter * call s:SetupWindows()
-    else
-      call s:SetupWindows()
-    endif
+    " Loop through all tabs (especially with DimInactiveOff).
+    " (starting with the current tab)
+    let mytab = tabpagenr()
+    for tab in [mytab] + range(1,tabpagenr('$'))
+      call s:SetupWindows(tab)
+    endfor
   augroup END
 endfun
 " }}}1
@@ -148,9 +175,6 @@ endfun
 command! DimInactive        call s:Setup(1)
 command! DimInactiveOff     call s:Setup(0)
 command! DimInactiveToggle  call s:Setup(!g:diminactive)
-
-" Useful/necessary after window layout (width) changed.
-command! DimInactiveRefresh call s:SetupWindows(1)
 " }}}1
 
 call s:Setup()
