@@ -64,9 +64,9 @@ fun! s:SetupWindows(...)
   call s:Debug('SetupWindows')
   for i in range(1, tabpagewinnr(tabnr, '$'))
     if !g:diminactive || i == winnr()
-      call s:Enter(i)
+      call s:Enter(i, tabnr)
     else
-      call s:Leave(i)
+      call s:Leave(i, tabnr)
     endif
   endfor
 endfun
