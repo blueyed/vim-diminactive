@@ -76,6 +76,11 @@ fun! s:Enter(...)
   let winnr = a:0 ? a:1 : winnr()
   let tabnr = a:0 > 1 ? a:2 : tabpagenr()
 
+  if ! gettabwinvar(tabnr, winnr, 'diminactive_stored_orig')
+    " Nothing to restore (yet).
+    return
+  endif
+
   " Set colorcolumn: falls back to "", which is required, when an existing
   " buffer gets opened again in a new window: Vim then uses the last
   " colorcolumn setting (which might come from our s:Leave!)
