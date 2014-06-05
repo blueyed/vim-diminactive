@@ -262,7 +262,9 @@ fun! s:Setup(...)
     " Loop through all tabs (especially with DimInactiveOff).
     " (starting with the current tab)
     let mytab = tabpagenr()
-    for tab in [mytab] + range(1,tabpagenr('$'))
+    let tabs = range(1,tabpagenr('$'))
+    call remove(tabs, mytab-1)
+    for tab in [mytab] + tabs
       call s:SetupWindows(tab)
     endfor
   augroup END
