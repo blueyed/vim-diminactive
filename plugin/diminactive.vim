@@ -41,6 +41,11 @@ if !exists('g:diminactive_debug')
   let g:diminactive_debug = 0
 endif
 
+" Set 'colorcolumn' for inactive buffers?
+if !exists('g:diminactive_use_colorcolumn')
+  let g:diminactive_use_colorcolumn = 0
+endif
+
 " Use ':syntax clear' for inactive buffers?
 if !exists('g:diminactive_use_syntax')
   let g:diminactive_use_syntax = 1
@@ -76,7 +81,7 @@ fun! s:SetupWindows(...)
   endfor
 endfun
 
-" Restore 'colorcolumn' in the given window.
+" Restore settings in the given window.
 fun! s:Enter(...)
   let winnr = a:0 ? a:1 : winnr()
   let tabnr = a:0 > 1 ? a:2 : tabpagenr()
@@ -86,21 +91,24 @@ fun! s:Enter(...)
     return
   endif
 
-  " Set colorcolumn: falls back to "", which is required, when an existing
-  " buffer gets opened again in a new window: Vim then uses the last
-  " colorcolumn setting (which might come from our s:Leave!)
-  let cuc = gettabwinvar(tabnr, winnr, 'diminactive_orig_cuc')
-  call s:Debug('Enter: restoring for', tabnr, winnr, cuc)
-  call settabwinvar(tabnr, winnr, '&colorcolumn', cuc)
-  " After restoring the original setting, pick up any user changes again.
-  call settabwinvar(tabnr, winnr, 'diminactive_stored_orig', 0)
+  if g:diminactive_use_colorcolumn
+    " Set colorcolumn: falls back to "", which is required, when an existing
+    " buffer gets opened again in a new window: Vim then uses the last
+    " colorcolumn setting (which might come from our s:Leave!)
+    let cuc = gettabwinvar(tabnr, winnr, 'diminactive_orig_cuc')
+    call s:Debug('Enter: restoring for', tabnr, winnr, cuc)
+    call settabwinvar(tabnr, winnr, '&colorcolumn', cuc)
+  endif
 
   if g:diminactive_use_syntax
     exec 'set syntax='.gettabwinvar(tabnr, winnr, 'diminactive_orig_syntax')
   endif
+
+  " After restoring the original setting, pick up any user changes again.
+  call settabwinvar(tabnr, winnr, 'diminactive_stored_orig', 0)
 endfun
 
-" Setup 'colorcolumn' in the given window.
+" Setup 'colorcolumn', 'syntax' etc in the given window.
 fun! s:Leave(...)
   let winnr = a:0 ? a:1 : winnr()
   let tabnr = a:0 > 1 ? a:2 : tabpagenr()
@@ -114,12 +122,15 @@ fun! s:Leave(...)
     endif
   endif
 
-  " Store original &colorcolumn setting, but not on VimResized / until we have
+  " Store original settings, but not on VimResized / until we have
   " entered the buffer again.
   if ! gettabwinvar(tabnr, winnr, 'diminactive_stored_orig')
-    let orig_cuc = gettabwinvar(tabnr, winnr, '&colorcolumn')
-    call s:Debug('Leave: storing orig setting for', tabnr, winnr)
-    call settabwinvar(tabnr, winnr, 'diminactive_orig_cuc', orig_cuc)
+    if g:diminactive_use_colorcolumn
+      let orig_cuc = gettabwinvar(tabnr, winnr, '&colorcolumn')
+      call s:Debug('Leave: storing orig setting for', tabnr, winnr)
+      call settabwinvar(tabnr, winnr, 'diminactive_orig_cuc', orig_cuc)
+    endif
+
     if g:diminactive_use_syntax
       call settabwinvar(tabnr, winnr, 'diminactive_orig_syntax',
             \ gettabwinvar(tabnr, winnr, '&syntax'))
@@ -128,37 +139,39 @@ fun! s:Leave(...)
     call settabwinvar(tabnr, winnr, 'diminactive_stored_orig', 1)
   endif
 
-  " NOTE: default return value for `gettabwinvar` requires Vim v7-3-831.
-  let cur_cuc = gettabwinvar(tabnr, winnr, '&colorcolumn')
+  if g:diminactive_use_colorcolumn
+    " NOTE: default return value for `gettabwinvar` requires Vim v7-3-831.
+    let cur_cuc = gettabwinvar(tabnr, winnr, '&colorcolumn')
 
-  call s:Debug('Leave', tabnr, winnr, cur_cuc)
+    let wrap = gettabwinvar(tabnr, winnr, '&wrap')
+    if wrap
+      " HACK: when wrapping lines is enabled, we use the maximum number
+      " of columns getting highlighted. This might get calculated by
+      " looking for the longest visible line and using a multiple of
+      " winwidth().
+      let l:width=g:diminactive_max_cols
+    else
+      " let l:width=winwidth(winnr)
+      " Use window width for number of columns to dim.
+      " This is too much with vertical splits, but I assume Vim to be smart
+      " enough, so that won't have a negative impact on performance.
+      " This has the benefit that window re-arrangement should not cause windows
+      " to be not fully dimmed anymore.
+      let l:width = &columns
+    endif
 
-  let wrap = gettabwinvar(tabnr, winnr, '&wrap')
-  if wrap
-    " HACK: when wrapping lines is enabled, we use the maximum number
-    " of columns getting highlighted. This might get calculated by
-    " looking for the longest visible line and using a multiple of
-    " winwidth().
-    let l:width=g:diminactive_max_cols
+    " Build &colorcolumn setting.
+    let l:range = join(range(1, l:width), ',')
+    call settabwinvar(tabnr, winnr, '&colorcolumn', l:range)
   else
-    " let l:width=winwidth(winnr)
-    " Use window width for number of columns to dim.
-    " This is too much with vertical splits, but I assume Vim to be smart
-    " enough, so that won't have a negative impact on performance.
-    " This has the benefit that window re-arrangement should not cause windows
-    " to be not fully dimmed anymore.
-    let l:width = &columns
+    let cur_cuc = 'cuc: skipped'
   endif
-
-  " Build &colorcolumn setting.
-  let l:range = join(range(1, l:width), ',')
-  call s:Debug('Dimming', tabnr, winnr)
-  call settabwinvar(tabnr, winnr, '&colorcolumn', l:range)
 
   if g:diminactive_use_syntax
-    " syntax clear
     set syntax=off
   endif
+
+  call s:Debug('Leave', tabnr, winnr, cur_cuc)
 endfun
 
 " Setup autocommands and init dimming.
