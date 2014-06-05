@@ -26,6 +26,11 @@ if !exists('g:diminactive')
   let g:diminactive = 1
 endif
 
+" State of buffers original &syntax setting.
+if !exists('g:diminactive_orig_syntax')
+  let g:diminactive_orig_syntax = {}
+endif
+
 " Callback to decide if a window should get dimmed. {{{2
 " The default disables dimming for &diff windows.
 if !exists('g:DimInactiveCallback')
@@ -71,7 +76,8 @@ endfun
 " With g:diminactive=0, it will call s:Enter on all of them.
 fun! s:SetupWindows(...)
   let tabnr = a:0 ? a:1 : tabpagenr()
-  call s:Debug('SetupWindows')
+  call s:Debug('SetupWindows', tabnr)
+
   for i in range(1, tabpagewinnr(tabnr, '$'))
     if !g:diminactive || i == winnr()
       call s:Enter(i, tabnr)
@@ -81,10 +87,73 @@ fun! s:SetupWindows(...)
   endfor
 endfun
 
+
+fun! s:bufnr(...)
+  let winnr = a:0 ? a:1 : winnr()
+  let tabnr = a:0 > 1 ? a:2 : tabpagenr()
+  return get(tabpagebuflist(tabnr), winnr-1)
+endfun
+
+
+fun! s:set_syntax(b, s)
+  call s:Debug('set_syntax', a:b, a:s)
+  if a:s
+    let orig_syntax = get(g:diminactive_orig_syntax, a:b, '')
+    if len(orig_syntax)
+      call s:Debug('Restoring orig_syntax', a:b, orig_syntax)
+      call setbufvar(a:b, '&syntax', orig_syntax)
+      call remove(g:diminactive_orig_syntax, a:b)
+    else
+      call s:Debug('set_syntax: nothing to restore!', a:b, orig_syntax)
+    endif
+  else
+    let orig_syntax = get(g:diminactive_orig_syntax, a:b, '')
+    if orig_syntax
+      call s:Debug('set_syntax: off: should be off already!', a:b, orig_syntax)
+    else
+      let syntax = getbufvar(a:b, '&syntax')
+      if syntax != 'off'
+        call s:Debug('set_syntax: storing', a:b, syntax)
+        let g:diminactive_orig_syntax[a:b] = syntax
+        call setbufvar(a:b, '&syntax', 'off')
+      else
+        call s:Debug('set_syntax: already off!', a:b)
+      endif
+    endif
+  endif
+endfun
+
+
+fun! s:should_get_dimmed(tabnr, winnr)
+  let cb_r = 1
+  if exists("*DimInactiveCallback")
+    let cb_r = DimInactiveCallback(a:tabnr, a:winnr)
+    if !cb_r
+      call s:Debug('should_get_dimmed: callback returned '.string(cb_r)
+            \ .': not dimming', a:tabnr, a:winnr)
+      return 0
+    endif
+  endif
+  return 1
+endfun
+
+
 " Restore settings in the given window.
 fun! s:Enter(...)
   let winnr = a:0 ? a:1 : winnr()
   let tabnr = a:0 > 1 ? a:2 : tabpagenr()
+
+  call s:Debug('Enter', tabnr, winnr)
+
+  if g:diminactive_use_syntax
+    let curbuf = s:bufnr(winnr, tabnr)
+    for b in tabpagebuflist(tabnr)
+      if b != curbuf && s:should_get_dimmed(tabnr, winnr)
+        call s:set_syntax(b, 0)
+      endif
+    endfor
+    call s:set_syntax(curbuf, 1)
+  endif
 
   if ! gettabwinvar(tabnr, winnr, 'diminactive_stored_orig')
     " Nothing to restore (yet).
@@ -100,26 +169,20 @@ fun! s:Enter(...)
     call settabwinvar(tabnr, winnr, '&colorcolumn', cuc)
   endif
 
-  if g:diminactive_use_syntax
-    exec 'set syntax='.gettabwinvar(tabnr, winnr, 'diminactive_orig_syntax')
-  endif
-
   " After restoring the original setting, pick up any user changes again.
   call settabwinvar(tabnr, winnr, 'diminactive_stored_orig', 0)
 endfun
+
 
 " Setup 'colorcolumn', 'syntax' etc in the given window.
 fun! s:Leave(...)
   let winnr = a:0 ? a:1 : winnr()
   let tabnr = a:0 > 1 ? a:2 : tabpagenr()
 
-  let cb_r = 1
-  if exists("*DimInactiveCallback")
-    let cb_r = DimInactiveCallback(tabnr, winnr)
-    if !cb_r
-      call s:Debug('Callback returned '.string(cb_r).': not dimming', tabnr, winnr)
-      return
-    endif
+  call s:Debug('Leave', tabnr, winnr)
+
+  if ! s:should_get_dimmed(tabnr, winnr)
+    return
   endif
 
   " Store original settings, but not on VimResized / until we have
@@ -129,11 +192,6 @@ fun! s:Leave(...)
       let orig_cuc = gettabwinvar(tabnr, winnr, '&colorcolumn')
       call s:Debug('Leave: storing orig setting for', tabnr, winnr)
       call settabwinvar(tabnr, winnr, 'diminactive_orig_cuc', orig_cuc)
-    endif
-
-    if g:diminactive_use_syntax
-      call settabwinvar(tabnr, winnr, 'diminactive_orig_syntax',
-            \ gettabwinvar(tabnr, winnr, '&syntax'))
     endif
 
     call settabwinvar(tabnr, winnr, 'diminactive_stored_orig', 1)
@@ -168,10 +226,10 @@ fun! s:Leave(...)
   endif
 
   if g:diminactive_use_syntax
-    set syntax=off
+      call s:set_syntax(s:bufnr(winnr, tabnr), 0)
   endif
 
-  call s:Debug('Leave', tabnr, winnr, cur_cuc)
+  call s:Debug('Leave: cur_cuc', cur_cuc)
 endfun
 
 " Setup autocommands and init dimming.
