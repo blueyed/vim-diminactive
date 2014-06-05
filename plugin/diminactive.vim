@@ -96,8 +96,7 @@ fun! s:Enter(...)
   call settabwinvar(tabnr, winnr, 'diminactive_stored_orig', 0)
 
   if g:diminactive_use_syntax
-    " syntax on
-    set syntax=on
+    exec 'set syntax='.gettabwinvar(tabnr, winnr, 'diminactive_orig_syntax')
   endif
 endfun
 
@@ -121,6 +120,11 @@ fun! s:Leave(...)
     let orig_cuc = gettabwinvar(tabnr, winnr, '&colorcolumn')
     call s:Debug('Leave: storing orig setting for', tabnr, winnr)
     call settabwinvar(tabnr, winnr, 'diminactive_orig_cuc', orig_cuc)
+    if g:diminactive_use_syntax
+      call settabwinvar(tabnr, winnr, 'diminactive_orig_syntax',
+            \ gettabwinvar(tabnr, winnr, '&syntax'))
+    endif
+
     call settabwinvar(tabnr, winnr, 'diminactive_stored_orig', 1)
   endif
 
