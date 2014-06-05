@@ -41,6 +41,11 @@ if !exists('g:diminactive_debug')
   let g:diminactive_debug = 0
 endif
 
+" Use ':syntax clear' for inactive buffers?
+if !exists('g:diminactive_use_syntax')
+  let g:diminactive_use_syntax = 1
+endif
+
 " Maximum number of entries in &colorcolumn, when &wrap is enabled.
 " NOTE: A maximum of 256 columns can be highlighted (Vim limitation; 7.4.192).
 if !exists('g:diminactive_max_cols')
@@ -89,6 +94,11 @@ fun! s:Enter(...)
   call settabwinvar(tabnr, winnr, '&colorcolumn', cuc)
   " After restoring the original setting, pick up any user changes again.
   call settabwinvar(tabnr, winnr, 'diminactive_stored_orig', 0)
+
+  if g:diminactive_use_syntax
+    " syntax on
+    set syntax=on
+  endif
 endfun
 
 " Setup 'colorcolumn' in the given window.
@@ -140,6 +150,11 @@ fun! s:Leave(...)
   let l:range = join(range(1, l:width), ',')
   call s:Debug('Dimming', tabnr, winnr)
   call settabwinvar(tabnr, winnr, '&colorcolumn', l:range)
+
+  if g:diminactive_use_syntax
+    " syntax clear
+    set syntax=off
+  endif
 endfun
 
 " Setup autocommands and init dimming.
