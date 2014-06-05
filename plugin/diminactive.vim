@@ -32,10 +32,13 @@ if !exists('g:diminactive_orig_syntax')
 endif
 
 " Callback to decide if a window should get dimmed. {{{2
-" The default disables dimming for &diff windows.
+" The default disables dimming for &diff windows, and non-normal buffers.
 if !exists('g:DimInactiveCallback')
   fun! DimInactiveCallback(tabnr, winnr)
     if gettabwinvar(a:tabnr, a:winnr, '&diff')
+      return 0
+    endif
+    if &buftype != ''
       return 0
     endif
     return 1
