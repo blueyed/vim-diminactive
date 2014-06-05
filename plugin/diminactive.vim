@@ -79,13 +79,13 @@ endfun
 " With g:diminactive=0, it will call s:Enter on all of them.
 fun! s:SetupWindows(...)
   let tabnr = a:0 ? a:1 : tabpagenr()
-  call s:Debug('SetupWindows', tabnr)
+  call s:Debug('SetupWindows', tabnr, a:0)
 
-  for i in range(1, tabpagewinnr(tabnr, '$'))
-    if !g:diminactive || i == winnr()
-      call s:Enter(i, tabnr)
+  for winnr in range(1, tabpagewinnr(tabnr, '$'))
+    if ! s:should_get_dimmed(winnr, tabnr) || winnr == tabpagewinnr(tabnr)
+      call s:Enter(winnr, tabnr)
     else
-      call s:Leave(i, tabnr)
+      call s:Leave(winnr, tabnr)
     endif
   endfor
 endfun
@@ -127,7 +127,7 @@ fun! s:set_syntax(b, s)
 endfun
 
 
-fun! s:should_get_dimmed(tabnr, winnr)
+fun! s:should_get_dimmed(winnr, tabnr)
   let cb_r = 1
   if exists("*DimInactiveCallback")
     let cb_r = DimInactiveCallback(a:tabnr, a:winnr)
@@ -137,7 +137,22 @@ fun! s:should_get_dimmed(tabnr, winnr)
       return 0
     endif
   endif
-  return 1
+
+  if ! getbufvar(s:bufnr(a:winnr, a:tabnr), 'diminactive', 1)
+    call s:Debug('b:diminactive is false: not dimming', a:tabnr, a:winnr)
+    return 0
+  endif
+
+  return g:diminactive
+endfun
+
+
+fun! s:DelegateForSessionLoad()
+  call s:Debug('SessionLoad in effect, postponing setup until SessionLoadPost.')
+  augroup DimInactive
+    au!
+    au SessionLoadPost * call s:Setup()
+  augroup END
 endfun
 
 
@@ -145,18 +160,37 @@ endfun
 fun! s:Enter(...)
   let winnr = a:0 ? a:1 : winnr()
   let tabnr = a:0 > 1 ? a:2 : tabpagenr()
+  let bufnr = s:bufnr(winnr, tabnr)
 
-  call s:Debug('Enter', tabnr, winnr)
+  call s:Debug('Enter', tabnr, winnr, bufnr)
 
+  if get(g:, 'SessionLoad', 0)
+    call s:DelegateForSessionLoad()
+    return
+  endif
+
+  " Handle syntax on all visible buffers in the current tab.
+  " NOTE: tabpagebuflist might have duplicate buffers.
+  "       (using uniq would re-order the index (which is the window number))
   if g:diminactive_use_syntax
-    let curbuf = s:bufnr(winnr, tabnr)
+    let w = 1
+    let checked = []
     for b in tabpagebuflist(tabnr)
-      if b != curbuf && s:should_get_dimmed(tabnr, winnr)
+      if index(checked, b) != -1
+        continue
+      endif
+      call s:Debug("CHECK", b, w, tabnr, string(checked))
+      if b != bufnr && s:should_get_dimmed(w, tabnr)
         call s:set_syntax(b, 0)
       endif
+      let w = w+1
+      let checked += [b]
     endfor
-    call s:set_syntax(curbuf, 1)
   endif
+  " Always make sure to activate/reset syntax, e.g. after
+  " g:diminactive_use_syntax=0 has been set manually.
+  call s:set_syntax(bufnr, 1)
+
 
   if ! gettabwinvar(tabnr, winnr, 'diminactive_stored_orig')
     " Nothing to restore (yet).
@@ -184,7 +218,12 @@ fun! s:Leave(...)
 
   call s:Debug('Leave', tabnr, winnr)
 
-  if ! s:should_get_dimmed(tabnr, winnr)
+  if get(g:, 'SessionLoad', 0)
+    call s:DelegateForSessionLoad()
+    return
+  endif
+
+  if ! s:should_get_dimmed(winnr, tabnr)
     return
   endif
 
@@ -235,17 +274,48 @@ fun! s:Leave(...)
   call s:Debug('Leave: cur_cuc', cur_cuc)
 endfun
 
+
 " Setup autocommands and init dimming.
 fun! s:Setup(...)
   if a:0
     let g:diminactive = a:1
   endif
-  " Delegate window setup to VimEnter event on startup.
+  let init_all_tabs = a:0
+
+  call s:Debug('Setup', g:diminactive, init_all_tabs)
+
+  " Delegate setup to VimEnter event on startup.
   if has('vim_starting')
-    au VimEnter * call s:Setup()
+    call s:Debug('vim_starting: postponing Setup().')
+    augroup DimInactive
+      au!
+      au VimEnter * call s:Setup()
+    augroup END
     return
   endif
 
+  " NOTE: we arrive here already with SessionLoad being not set.
+  " call s:Debug('SessionLoad', exists('g:SessionLoad'))
+
+  " Init tabs: only the current one by default.
+  call s:Debug('Setup: SetupWindows tab loop.')
+  let curtab = tabpagenr()
+
+  let tabs = [curtab]
+  if init_all_tabs
+    " Loop through all tabs (especially with DimInactiveOff).
+    " (starting with the current tab)
+    let _ = range(1, tabpagenr('$'))
+    call remove(_, curtab-1)
+    let tabs = [curtab] + _
+  endif
+
+  for tab in tabs
+    call s:SetupWindows(tab)
+  endfor
+
+
+  " Setup autogroups, after initializing windows.
   augroup DimInactive
     au!
     if g:diminactive
@@ -258,23 +328,17 @@ fun! s:Setup(...)
       au WinEnter,BufWinEnter * call s:Enter()
       au VimResized           * call s:SetupWindows()
     endif
-
-    " Loop through all tabs (especially with DimInactiveOff).
-    " (starting with the current tab)
-    let mytab = tabpagenr()
-    let tabs = range(1,tabpagenr('$'))
-    call remove(tabs, mytab-1)
-    for tab in [mytab] + tabs
-      call s:SetupWindows(tab)
-    endfor
   augroup END
 endfun
 " }}}1
 
+
 " Commands {{{1
-command! DimInactive        call s:Setup(1)
-command! DimInactiveOff     call s:Setup(0)
-command! DimInactiveToggle  call s:Setup(!g:diminactive)
+command! DimInactive          call s:Setup(1)
+command! DimInactiveOff       call s:Setup(0)
+command! DimInactiveToggle    call s:Setup(!g:diminactive)
+command! DimInactiveBufferOff call s:Enter() | let b:diminactive=0
+command! DimInactiveBufferOn  call s:Enter() | unlet! b:diminactive
 " }}}1
 
 call s:Setup()
