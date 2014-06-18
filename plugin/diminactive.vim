@@ -51,12 +51,12 @@ endif
 
 " Set 'colorcolumn' for inactive buffers?
 if !exists('g:diminactive_use_colorcolumn')
-  let g:diminactive_use_colorcolumn = 0
+  let g:diminactive_use_colorcolumn = 1
 endif
 
 " Use ':syntax clear' for inactive buffers?
 if !exists('g:diminactive_use_syntax')
-  let g:diminactive_use_syntax = 1
+  let g:diminactive_use_syntax = 0
 endif
 
 " Maximum number of entries in &colorcolumn, when &wrap is enabled.
