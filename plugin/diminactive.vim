@@ -327,6 +327,8 @@ fun! s:Setup(...)
       " required.
       au WinEnter,BufWinEnter * call s:Enter()
       au VimResized           * call s:SetupWindows()
+      au FocusGained          * call s:Enter()
+      au FocusLost            * call s:Leave()
     endif
   augroup END
 endfun
