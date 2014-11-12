@@ -334,6 +334,7 @@ endfun
 
 " Commands {{{1
 command! DimInactive          let g:diminactive=1  | call s:Setup()
+command! DimInactiveOn        DimInactive
 command! DimInactiveOff       let g:diminactive=0  | call s:Setup()
 command! DimInactiveToggle    let g:diminactive=!g:diminactive | call s:Setup()
 

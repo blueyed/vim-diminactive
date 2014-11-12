@@ -48,4 +48,3 @@ suggestions made by joeytwiddle.
 
 [1]: https://groups.google.com/d/msg/vim_use/IJU-Vk-QLJE/xz4hjPjCRBUJ
 [2]: http://stackoverflow.com/a/12519572/15690
-
