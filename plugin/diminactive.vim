@@ -143,6 +143,11 @@ fun! s:should_get_dimmed(winnr, tabnr)
     return 0
   endif
 
+  if ! gettabwinvar(a:tabnr, a:winnr, 'diminactive', 1)
+    call s:Debug('w:diminactive is false: not dimming', a:tabnr, a:winnr)
+    return 0
+  endif
+
   return g:diminactive
 endfun
 
@@ -277,12 +282,7 @@ endfun
 
 " Setup autocommands and init dimming.
 fun! s:Setup(...)
-  if a:0
-    let g:diminactive = a:1
-  endif
-  let init_all_tabs = a:0
-
-  call s:Debug('Setup', g:diminactive, init_all_tabs)
+  call s:Debug('Setup', g:diminactive)
 
   " Delegate setup to VimEnter event on startup.
   if has('vim_starting')
@@ -302,13 +302,12 @@ fun! s:Setup(...)
   let curtab = tabpagenr()
 
   let tabs = [curtab]
-  if init_all_tabs
-    " Loop through all tabs (especially with DimInactiveOff).
-    " (starting with the current tab)
-    let _ = range(1, tabpagenr('$'))
-    call remove(_, curtab-1)
-    let tabs = [curtab] + _
-  endif
+
+  " Loop through all tabs (especially with DimInactiveOff),
+  " starting at the current tab.
+  let _ = range(1, tabpagenr('$'))
+  call remove(_, curtab-1)
+  let tabs = [curtab] + _
 
   for tab in tabs
     call s:SetupWindows(tab)
@@ -334,11 +333,15 @@ endfun
 
 
 " Commands {{{1
-command! DimInactive          call s:Setup(1)
-command! DimInactiveOff       call s:Setup(0)
-command! DimInactiveToggle    call s:Setup(!g:diminactive)
-command! DimInactiveBufferOff call s:Enter() | let b:diminactive=0
-command! DimInactiveBufferOn  call s:Enter() | unlet! b:diminactive
+command! DimInactive          let g:diminactive=1  | call s:Setup()
+command! DimInactiveOff       let g:diminactive=0  | call s:Setup()
+command! DimInactiveToggle    let g:diminactive=!g:diminactive | call s:Setup()
+
+command! DimInactiveBufferOff let b:diminactive=0  | call s:Setup()
+command! DimInactiveBufferOn  unlet! b:diminactive | call s:Setup()
+
+command! DimInactiveWindowOff let w:diminactive=0  | call s:Enter()
+command! DimInactiveWindowOn  unlet! w:diminactive | call s:Enter()
 " }}}1
 
 call s:Setup()
