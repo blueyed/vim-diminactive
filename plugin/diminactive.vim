@@ -27,9 +27,7 @@ if !exists('g:diminactive')
 endif
 
 " State of buffers original &syntax setting.
-if !exists('g:diminactive_orig_syntax')
-  let g:diminactive_orig_syntax = {}
-endif
+let s:diminactive_orig_syntax = {}
 
 " Callback to decide if a window should get dimmed. {{{2
 " The default disables dimming for &diff windows, and non-normal buffers.
@@ -85,12 +83,18 @@ endfun
 " With g:diminactive=0, it will call s:Enter on all of them.
 fun! s:SetupWindows(...)
   let tabnr = a:0 ? a:1 : tabpagenr()
+  let refresh = a:0 > 1 ? a:2 : 0
+
   call s:Debug('SetupWindows', tabnr, a:0)
 
-  for winnr in range(1, tabpagewinnr(tabnr, '$'))
+  let windows = range(1, tabpagewinnr(tabnr, '$'))
+  for winnr in windows
     if ! s:should_get_dimmed(tabnr, winnr) || winnr == tabpagewinnr(tabnr)
       call s:Enter(tabnr, winnr)
     else
+      if refresh
+        call s:Enter(tabnr, winnr)
+      endif
       call s:Leave(tabnr, winnr)
     endif
   endfor
@@ -98,6 +102,7 @@ endfun
 
 
 fun! s:SetupTabs(...)
+  let refresh = a:0 ? a:1 : 0
   " Init tabs: only the current one by default.
   call s:Debug('SetupTabs: SetupWindows tab loop.')
   let curtab = tabpagenr()
@@ -110,7 +115,7 @@ fun! s:SetupTabs(...)
 
   for tab in tabs
     call s:Debug("LOOP TAB: ".tab)
-    call s:SetupWindows(tab)
+    call s:SetupWindows(tab, refresh)
   endfor
 endfun
 
@@ -130,23 +135,23 @@ endfun
 fun! s:set_syntax(b, s)
   call s:Debug('set_syntax', 'buf: '.a:b, 'set: '.a:s)
   if a:s
-    let orig_syntax = get(g:diminactive_orig_syntax, a:b, '')
+    let orig_syntax = get(s:diminactive_orig_syntax, a:b, '')
     if len(orig_syntax)
       call s:Debug('Restoring orig_syntax', a:b, orig_syntax)
       call setbufvar(a:b, '&syntax', orig_syntax)
-      call remove(g:diminactive_orig_syntax, a:b)
+      call remove(s:diminactive_orig_syntax, a:b)
     else
       call s:Debug('set_syntax: nothing to restore!', a:b, orig_syntax)
     endif
   else
-    let orig_syntax = get(g:diminactive_orig_syntax, a:b, '')
+    let orig_syntax = get(s:diminactive_orig_syntax, a:b, '')
     if orig_syntax
       call s:Debug('set_syntax: off: should be off already!', a:b, orig_syntax)
     else
       let syntax = getbufvar(a:b, '&syntax')
       if syntax != 'off'
         call s:Debug('set_syntax: storing', a:b, syntax)
-        let g:diminactive_orig_syntax[a:b] = syntax
+        let s:diminactive_orig_syntax[a:b] = syntax
         call setbufvar(a:b, '&syntax', 'off')
       else
         call s:Debug('set_syntax: already off!', a:b)
@@ -251,31 +256,13 @@ endfun
 " This might get called with the previous buffer / window settings (with
 " `:sp`), but gets then called again via s:Enter (for BufEnter).
 fun! s:EnterWindow(...)
-  if g:diminactive_use_colorcolumn
-    let tabnr = a:0 > 0 ? a:1 : tabpagenr()
-    let winnr = a:0 > 1 ? a:2 : winnr()
-    let bufnr = a:0 > 2 ? a:3 : s:bufnr(tabnr, winnr)
+  let tabnr = a:0 > 0 ? a:1 : tabpagenr()
+  let winnr = a:0 > 1 ? a:2 : winnr()
+  let bufnr = a:0 > 2 ? a:3 : s:bufnr(tabnr, winnr)
 
-    call s:Debug('EnterWindow: tab: '.tabnr.', win: '.winnr.', buf: '.bufnr)
-    if !gettabwinvar(tabnr, winnr, 'diminactive_stored_orig')
-      call s:Debug('EnterWindow: colorcolumn: nothing to restore!')
-    else
-      let cuc = gettabwinvar(tabnr, winnr, 'diminactive_orig_cuc')
-      if ! cuc
-        call s:Debug('EnterWindow: colorcolumn: nothing to restore!')
-      else
-        " Set colorcolumn: falls back to "", which is required, when an existing
-        " buffer gets opened again in a new window: Vim then uses the last
-        " colorcolumn setting (which might come from our s:Leave!)
-        call s:Debug('EnterWindow: colorcolumn: restoring for tab: '.tabnr.', win: '.winnr.', &cc: '.cuc)
-        call settabwinvar(tabnr, winnr, '&colorcolumn', cuc)
+  call s:Debug('EnterWindow: tab: '.tabnr.', win: '.winnr.', buf: '.bufnr)
 
-        " After restoring the original setting, pick up any user changes again.
-        call settabwinvar(tabnr, winnr, 'diminactive_stored_orig', 0)
-      endif
-    endif
-  endif
-
+  call s:restore_colorcolumn(tabnr, winnr)
 
   " Handle left windows, after handling entering the new window, because
   " it might derive the last set &colorcolumn setting.
@@ -288,6 +275,26 @@ fun! s:EnterWindow(...)
   endfor
 endfun
 
+fun! s:restore_colorcolumn(tabnr, winnr)
+  if !gettabwinvar(a:tabnr, a:winnr, 'diminactive_stored_orig')
+    call s:Debug('restore_colorcolumn: nothing stored!')
+    return
+  endif
+
+  let cuc = gettabwinvar(a:tabnr, a:winnr, 'diminactive_orig_cuc')
+  if ! cuc
+    call s:Debug('restore_colorcolumn: nothing to restore!')
+  else
+    " Set colorcolumn: falls back to "", which is required, when an existing
+    " buffer gets opened again in a new window: Vim then uses the last
+    " colorcolumn setting (which might come from our s:Leave!)
+    call s:Debug('restore_colorcolumn: restoring for tab: '.a:tabnr.', win: '.a:winnr.', &cc: '.cuc)
+    call settabwinvar(a:tabnr, a:winnr, '&colorcolumn', cuc)
+
+    " After restoring the original setting, pick up any user changes again.
+    call settabwinvar(a:tabnr, a:winnr, 'diminactive_stored_orig', 0)
+  endif
+endfun
 
 fun! s:store_orig_colorcolumn(tabnr, winnr, bufnr)
   " Store original settings, but not on VimResized / until we have
@@ -365,14 +372,16 @@ endfun
 
 " Setup autocommands and init dimming.
 fun! s:Setup(...)
-  call s:Debug('Setup', g:diminactive)
+  let refresh = a:0 ? a:1 : 0
+
+  call s:Debug('Setup', g:diminactive, refresh)
 
   " Delegate setup to VimEnter event on startup.
   if has('vim_starting')
     call s:Debug('vim_starting: postponing Setup().')
     augroup DimInactive
       au!
-      au VimEnter * call s:Setup()
+      exec 'au VimEnter * call s:Setup('.refresh.')'
     augroup END
     return
   endif
@@ -380,7 +389,7 @@ fun! s:Setup(...)
   " NOTE: we arrive here already with SessionLoad being not set.
   " call s:Debug('SessionLoad', exists('g:SessionLoad'))
 
-  call s:SetupTabs()
+  call s:SetupTabs(refresh)
 
   " Setup autogroups, after initializing windows.
   augroup DimInactive
@@ -416,6 +425,12 @@ command! DimInactiveBufferOn  unlet! b:diminactive | call s:Setup()
 
 command! DimInactiveWindowOff let w:diminactive=0  | call s:EnterWindow()
 command! DimInactiveWindowOn  unlet! w:diminactive | call s:EnterWindow()
+
+command! DimInactiveSyntaxOn  let g:diminactive_use_syntax=1 | call s:Setup(1)
+command! DimInactiveSyntaxOff let g:diminactive_use_syntax=0 | call s:Setup(1)
+
+command! DimInactiveColorcolumnOn  let g:diminactive_use_colorcolumn=1 | call s:Setup(1)
+command! DimInactiveColorcolumnOff let g:diminactive_use_colorcolumn=0 | call s:Setup(1)
 " }}}1
 
 call s:Setup()
