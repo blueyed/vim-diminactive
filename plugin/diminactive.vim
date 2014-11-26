@@ -38,7 +38,7 @@ if !exists('g:DimInactiveCallback')
     if gettabwinvar(a:tabnr, a:winnr, '&diff')
       return 0
     endif
-    if &buftype != ''
+    if &buftype != '' && &filetype != 'startify'
       return 0
     endif
     return 1
