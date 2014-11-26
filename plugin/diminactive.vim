@@ -34,11 +34,12 @@ endif
 " Callback to decide if a window should get dimmed. {{{2
 " The default disables dimming for &diff windows, and non-normal buffers.
 if !exists('g:DimInactiveCallback')
-  fun! DimInactiveCallback(tabnr, winnr)
+  fun! DimInactiveCallback(tabnr, winnr, bufnr)
     if gettabwinvar(a:tabnr, a:winnr, '&diff')
       return 0
     endif
-    if &buftype != '' && &filetype != 'startify'
+    if getbufvar(a:bufnr, '&buftype') != ''
+          \ && getbufvar(a:bufnr, '&filetype') != 'startify'
       return 0
     endif
     return 1
@@ -157,17 +158,17 @@ endfun
 
 " Optional 3rd arg: bufnr
 fun! s:should_get_dimmed(tabnr, winnr, ...)
+  let bufnr = a:0 ? a:1 : s:bufnr(a:tabnr, a:winnr)
+
   let cb_r = 1
   if exists("*DimInactiveCallback")
-    let cb_r = DimInactiveCallback(a:tabnr, a:winnr)
+    let cb_r = DimInactiveCallback(a:tabnr, a:winnr, bufnr)
     if !cb_r
       call s:Debug('should_get_dimmed: callback returned '.string(cb_r)
             \ .': not dimming', a:tabnr, a:winnr)
       return 0
     endif
   endif
-
-  let bufnr = a:0 > 2 ? a:3 : s:bufnr(a:tabnr, a:winnr)
 
   if ! getbufvar(bufnr, 'diminactive', 1)
     call s:Debug('b:diminactive is false: not dimming', a:tabnr, a:winnr, bufnr)
