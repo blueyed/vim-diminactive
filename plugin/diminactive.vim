@@ -64,12 +64,17 @@ endif
 if !exists('g:diminactive_max_cols')
   let g:diminactive_max_cols = 256
 endif
+
 " Debug helper {{{2
 fun! s:Debug(...)
   if ! g:diminactive_debug
     return
   endif
-  echom string(a:000)
+  if a:0 == 1 && type(a:1) == type("")
+    echom 'diminactive: '.a:1
+  else
+    echom 'diminactive: '.string(a:000)
+  endif
 endfun
 " }}}1
 
@@ -82,24 +87,47 @@ fun! s:SetupWindows(...)
   call s:Debug('SetupWindows', tabnr, a:0)
 
   for winnr in range(1, tabpagewinnr(tabnr, '$'))
-    if ! s:should_get_dimmed(winnr, tabnr) || winnr == tabpagewinnr(tabnr)
-      call s:Enter(winnr, tabnr)
+    if ! s:should_get_dimmed(tabnr, winnr) || winnr == tabpagewinnr(tabnr)
+      call s:Enter(tabnr, winnr)
     else
-      call s:Leave(winnr, tabnr)
+      call s:Leave(tabnr, winnr)
     endif
   endfor
 endfun
 
 
+fun! s:SetupTabs(...)
+  " Init tabs: only the current one by default.
+  call s:Debug('SetupTabs: SetupWindows tab loop.')
+  let curtab = tabpagenr()
+
+  " Loop through all tabs (especially with DimInactiveOff),
+  " starting at the current tab.
+  let _ = range(1, tabpagenr('$'))
+  call remove(_, index(_, curtab))
+  let tabs = [curtab] + _
+
+  for tab in tabs
+    call s:Debug("LOOP TAB: ".tab)
+    call s:SetupWindows(tab)
+  endfor
+endfun
+
+
+" Might return 0 if the tabpage went away.
 fun! s:bufnr(...)
-  let winnr = a:0 ? a:1 : winnr()
-  let tabnr = a:0 > 1 ? a:2 : tabpagenr()
-  return get(tabpagebuflist(tabnr), winnr-1)
+  let tabnr = a:0 > 0 ? a:1 : tabpagenr()
+  let winnr = a:0 > 1 ? a:2 : winnr()
+  let tabbuflist = tabpagebuflist(tabnr)
+  if type(tabbuflist) == type(0)
+    return 0
+  endif
+  return get(tabbuflist, winnr-1)
 endfun
 
 
 fun! s:set_syntax(b, s)
-  call s:Debug('set_syntax', a:b, a:s)
+  call s:Debug('set_syntax', 'buf: '.a:b, 'set: '.a:s)
   if a:s
     let orig_syntax = get(g:diminactive_orig_syntax, a:b, '')
     if len(orig_syntax)
@@ -127,7 +155,8 @@ fun! s:set_syntax(b, s)
 endfun
 
 
-fun! s:should_get_dimmed(winnr, tabnr)
+" Optional 3rd arg: bufnr
+fun! s:should_get_dimmed(tabnr, winnr, ...)
   let cb_r = 1
   if exists("*DimInactiveCallback")
     let cb_r = DimInactiveCallback(a:tabnr, a:winnr)
@@ -138,8 +167,10 @@ fun! s:should_get_dimmed(winnr, tabnr)
     endif
   endif
 
-  if ! getbufvar(s:bufnr(a:winnr, a:tabnr), 'diminactive', 1)
-    call s:Debug('b:diminactive is false: not dimming', a:tabnr, a:winnr)
+  let bufnr = a:0 > 2 ? a:3 : s:bufnr(a:tabnr, a:winnr)
+
+  if ! getbufvar(bufnr, 'diminactive', 1)
+    call s:Debug('b:diminactive is false: not dimming', a:tabnr, a:winnr, bufnr)
     return 0
   endif
 
@@ -163,11 +194,12 @@ endfun
 
 " Restore settings in the given window.
 fun! s:Enter(...)
-  let winnr = a:0 ? a:1 : winnr()
-  let tabnr = a:0 > 1 ? a:2 : tabpagenr()
-  let bufnr = s:bufnr(winnr, tabnr)
+  let tabnr = a:0 > 0 ? a:1 : tabpagenr()
+  let winnr = a:0 > 1 ? a:2 : winnr()
+  let bufnr = a:0 > 2 ? a:3 : s:bufnr(tabnr, winnr)
 
-  call s:Debug('Enter', tabnr, winnr, bufnr)
+  call s:Debug('Enter: tab: '.tabnr.', win: '.winnr
+        \ .', buf: '.bufnr.' ['.fnamemodify(bufname(bufnr), ':t').']')
 
   if get(g:, 'SessionLoad', 0)
     call s:DelegateForSessionLoad()
@@ -185,7 +217,7 @@ fun! s:Enter(...)
         continue
       endif
       call s:Debug("CHECK", b, w, tabnr, string(checked))
-      if b != bufnr && s:should_get_dimmed(w, tabnr)
+      if b != bufnr && s:should_get_dimmed(tabnr, w, b)
         call s:set_syntax(b, 0)
       endif
       let w = w+1
@@ -196,57 +228,108 @@ fun! s:Enter(...)
   " g:diminactive_use_syntax=0 has been set manually.
   call s:set_syntax(bufnr, 1)
 
+  " Trigger WinEnter processing for (always) correct buffer in the window.
+  call s:EnterWindow(tabnr, winnr)
 
   if ! gettabwinvar(tabnr, winnr, 'diminactive_stored_orig')
-    " Nothing to restore (yet).
-    return
-  endif
-
-  if g:diminactive_use_colorcolumn
-    " Set colorcolumn: falls back to "", which is required, when an existing
-    " buffer gets opened again in a new window: Vim then uses the last
-    " colorcolumn setting (which might come from our s:Leave!)
     let cuc = gettabwinvar(tabnr, winnr, 'diminactive_orig_cuc')
-    call s:Debug('Enter: restoring for', tabnr, winnr, cuc)
-    call settabwinvar(tabnr, winnr, '&colorcolumn', cuc)
+    if ! cuc
+      return
+    endif
+
+    call s:Debug('Enter: colorcolumn: nothing to restore!')
+
+    " EXPERIMENTAL: store the current setting.
+    call s:store_orig_colorcolumn(tabnr, winnr, bufnr)
+    " call s:Debug('diminactive_orig_cuc: '.gettabwinvar(tabnr, winnr, 'diminactive_orig_cuc'))
+  endif
+endfun
+
+
+" Entering a window.
+" This might get called with the previous buffer / window settings (with
+" `:sp`), but gets then called again via s:Enter (for BufEnter).
+fun! s:EnterWindow(...)
+  if g:diminactive_use_colorcolumn
+    let tabnr = a:0 > 0 ? a:1 : tabpagenr()
+    let winnr = a:0 > 1 ? a:2 : winnr()
+    let bufnr = a:0 > 2 ? a:3 : s:bufnr(tabnr, winnr)
+
+    call s:Debug('EnterWindow: tab: '.tabnr.', win: '.winnr.', buf: '.bufnr)
+    if !gettabwinvar(tabnr, winnr, 'diminactive_stored_orig')
+      call s:Debug('EnterWindow: colorcolumn: nothing to restore!')
+    else
+      let cuc = gettabwinvar(tabnr, winnr, 'diminactive_orig_cuc')
+      if ! cuc
+        call s:Debug('EnterWindow: colorcolumn: nothing to restore!')
+      else
+        " Set colorcolumn: falls back to "", which is required, when an existing
+        " buffer gets opened again in a new window: Vim then uses the last
+        " colorcolumn setting (which might come from our s:Leave!)
+        call s:Debug('EnterWindow: colorcolumn: restoring for tab: '.tabnr.', win: '.winnr.', &cc: '.cuc)
+        call settabwinvar(tabnr, winnr, '&colorcolumn', cuc)
+
+        " After restoring the original setting, pick up any user changes again.
+        call settabwinvar(tabnr, winnr, 'diminactive_stored_orig', 0)
+      endif
+    endif
   endif
 
-  " After restoring the original setting, pick up any user changes again.
-  call settabwinvar(tabnr, winnr, 'diminactive_stored_orig', 0)
+
+  " Handle left windows, after handling entering the new window, because
+  " it might derive the last set &colorcolumn setting.
+  call s:Debug('Handle left window(s)')
+  for winnr in range(1, tabpagewinnr(tabnr, '$'))
+    if gettabwinvar(tabnr, winnr, 'diminactive_left_window')
+      call s:Leave(tabnr, winnr)
+      call settabwinvar(tabnr, winnr, 'diminactive_left_window', 0)
+    endif
+  endfor
+endfun
+
+
+fun! s:store_orig_colorcolumn(tabnr, winnr, bufnr)
+  " Store original settings, but not on VimResized / until we have
+  " entered the buffer again.
+  if gettabwinvar(a:tabnr, a:winnr, 'diminactive_stored_orig')
+        \ || ! g:diminactive_use_colorcolumn
+    return 0
+  endif
+
+  let orig_cuc = gettabwinvar(a:tabnr, a:winnr, '&colorcolumn')
+  call s:Debug('colorcolumn: storing orig setting for',
+        \ 'tab: '.a:tabnr, 'win: '.a:winnr, 'buf: '.a:bufnr)
+  call settabwinvar(a:tabnr, a:winnr, 'diminactive_orig_cuc', orig_cuc)
+
+  " Save it also in a buffer local var to work around Vim applying
+  " &colorcolumn (sometimes) to a new window for/from an existing buffer.
+  call setbufvar(a:bufnr, 'diminactive_orig_cuc_bufbak', orig_cuc)
+
+  call settabwinvar(a:tabnr, a:winnr, 'diminactive_stored_orig', 1)
+  return 1
 endfun
 
 
 " Setup 'colorcolumn', 'syntax' etc in the given window.
 fun! s:Leave(...)
-  let winnr = a:0 ? a:1 : winnr()
-  let tabnr = a:0 > 1 ? a:2 : tabpagenr()
+  let tabnr = a:0 > 0 ? a:1 : tabpagenr()
+  let winnr = a:0 > 1 ? a:2 : winnr()
+  let bufnr = a:0 > 2 ? a:3 : s:bufnr(tabnr, winnr)
 
-  call s:Debug('Leave', tabnr, winnr)
+  call s:Debug('Leave: tab: '.tabnr.', win: '.winnr
+        \ .', buf: '.bufnr.' ['.fnamemodify(bufname(bufnr), ':t').']')
 
   if get(g:, 'SessionLoad', 0)
     call s:DelegateForSessionLoad()
     return
   endif
 
-  if ! s:should_get_dimmed(winnr, tabnr)
+  if ! s:should_get_dimmed(tabnr, winnr, bufnr)
     return
   endif
 
-  " Store original settings, but not on VimResized / until we have
-  " entered the buffer again.
-  if ! gettabwinvar(tabnr, winnr, 'diminactive_stored_orig')
-    if g:diminactive_use_colorcolumn
-      let orig_cuc = gettabwinvar(tabnr, winnr, '&colorcolumn')
-      call s:Debug('Leave: storing orig setting for', tabnr, winnr)
-      call settabwinvar(tabnr, winnr, 'diminactive_orig_cuc', orig_cuc)
-    endif
-
-    call settabwinvar(tabnr, winnr, 'diminactive_stored_orig', 1)
-  endif
-
   if g:diminactive_use_colorcolumn
-    " NOTE: default return value for `gettabwinvar` requires Vim v7-3-831.
-    let cur_cuc = gettabwinvar(tabnr, winnr, '&colorcolumn')
+    call s:store_orig_colorcolumn(tabnr, winnr, bufnr)
 
     let wrap = gettabwinvar(tabnr, winnr, '&wrap')
     if wrap
@@ -254,7 +337,7 @@ fun! s:Leave(...)
       " of columns getting highlighted. This might get calculated by
       " looking for the longest visible line and using a multiple of
       " winwidth().
-      let l:width=g:diminactive_max_cols
+      let l:width = g:diminactive_max_cols
     else
       " let l:width=winwidth(winnr)
       " Use window width for number of columns to dim.
@@ -267,16 +350,15 @@ fun! s:Leave(...)
 
     " Build &colorcolumn setting.
     let l:range = join(range(1, l:width), ',')
+    call s:Debug('Leave: setting colorcolumn.')
     call settabwinvar(tabnr, winnr, '&colorcolumn', l:range)
   else
-    let cur_cuc = 'cuc: skipped'
+    call s:Debug('Leave: colorcolumn: skipped/disabled.')
   endif
 
   if g:diminactive_use_syntax
-      call s:set_syntax(s:bufnr(winnr, tabnr), 0)
+    call s:set_syntax(bufnr, 0)
   endif
-
-  call s:Debug('Leave: cur_cuc', cur_cuc)
 endfun
 
 
@@ -297,35 +379,25 @@ fun! s:Setup(...)
   " NOTE: we arrive here already with SessionLoad being not set.
   " call s:Debug('SessionLoad', exists('g:SessionLoad'))
 
-  " Init tabs: only the current one by default.
-  call s:Debug('Setup: SetupWindows tab loop.')
-  let curtab = tabpagenr()
-
-  let tabs = [curtab]
-
-  " Loop through all tabs (especially with DimInactiveOff),
-  " starting at the current tab.
-  let _ = range(1, tabpagenr('$'))
-  call remove(_, curtab-1)
-  let tabs = [curtab] + _
-
-  for tab in tabs
-    call s:SetupWindows(tab)
-  endfor
-
+  call s:SetupTabs()
 
   " Setup autogroups, after initializing windows.
   augroup DimInactive
     au!
     if g:diminactive
-      au WinLeave             * call s:Leave()
+      " Mark left windows, and handle them in WinEnter, _after_ entering the
+      " new one (otherwise &colorcolumn settings might get copied over).
+      au WinLeave             * call s:Debug('EVENT: WinLeave')
+            \ | let w:diminactive_left_window = 1
       " Using BufWinEnter additionally, because otherwise an existing buffer
       " in a new (tab) window will be dimmed. Somehow the &colorcolumn gets
       " re-used then (Vim 7.4.192).
       " NOTE: previously used BufEnter, but that might be too much / not
       " required.
-      au WinEnter,BufWinEnter * call s:Enter()
-      au VimResized           * call s:SetupWindows()
+      au BufEnter   * call s:Debug('EVENT: BufEnter') | call s:Enter()
+      au WinEnter   * call s:Debug('EVENT: WinEnter') | call s:EnterWindow()
+      au VimResized * call s:Debug('EVENT: VimResized') | call s:SetupWindows()
+      au TabEnter   * call s:Debug('EVENT: TabEnter') | call s:SetupWindows()
     endif
   augroup END
 endfun
@@ -341,8 +413,8 @@ command! DimInactiveToggle    let g:diminactive=!g:diminactive | call s:Setup()
 command! DimInactiveBufferOff let b:diminactive=0  | call s:Setup()
 command! DimInactiveBufferOn  unlet! b:diminactive | call s:Setup()
 
-command! DimInactiveWindowOff let w:diminactive=0  | call s:Enter()
-command! DimInactiveWindowOn  unlet! w:diminactive | call s:Enter()
+command! DimInactiveWindowOff let w:diminactive=0  | call s:EnterWindow()
+command! DimInactiveWindowOn  unlet! w:diminactive | call s:EnterWindow()
 " }}}1
 
 call s:Setup()
