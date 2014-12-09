@@ -2,6 +2,14 @@
 
 This is a plugin for Vim to dim inactive windows.
 
+## Screenshot
+
+![Screenshot](screenshot.png)
+
+## Screencast
+
+![Screencast](https://asciinema.org/a/13855)
+
 ## Methods
 
 It provides two methods, which can be used independent:
@@ -24,13 +32,34 @@ disabled by default, and you can enable it using:
 
     let g:diminactive_use_syntax = 1
 
+## Commands
+
+The following commands are provided to control it:
+
+### Global control
+ - DimInactive / DimInactiveOn
+ - DimInactiveOff
+ - DimInactiveToggle
+
+ - DimInactiveSyntaxOn
+ - DimInactiveSyntaxOff
+
+ - DimInactiveColorcolumnOn
+ - DimInactiveColorcolumnOff
+
+### Control on the buffer level
+ - DimInactiveBufferOff
+ - DimInactiveBufferOn
+
+### Control on the window level
+ - DimInactiveWindowOff
+ - DimInactiveWindowOn
+
 ## Credits
 
 It is based on an [idea from Paul Isambert][1], which got turned into a
 [StackOverflow answer][2] and then into a plugin, incorporating the
 suggestions made by joeytwiddle.
-
-![Screenshot](screenshot.png)
 
 ## Caveats
 * It might slow down redrawing of windows.
