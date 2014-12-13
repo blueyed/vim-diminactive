@@ -2,6 +2,8 @@
 
 This is a plugin for Vim to dim inactive windows.
 
+[![Build Status](https://travis-ci.org/blueyed/vim-diminactive.svg?branch=master)](https://travis-ci.org/blueyed/vim-diminactive)
+
 ## Screenshot
 
 ![Screenshot](screenshot.png)
