@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
 
-set -x
+# Exit on errors.
+set -e
 
-# CI=true
-# if [ "$CI" != true ]; then
-  ATTACH_TO_TMUX=0
-# fi
+# Keep Vader results open in Vim? (used by `make testi`)
+: ${VADER_KEEP:=0}
+
+# Attach to tmux? Defaults to $VADER_KEEP.
+: ${ATTACH_TO_TMUX:=$VADER_KEEP}
 
 # Change to current dir (POSIXly).
 cd -P -- "$(dirname -- "$0")"
@@ -16,27 +18,34 @@ if [ -f ${vader[0]} ]; then
     # Remove "plugin/vader.vim" suffix.
     vader=${vader[0]%/*/*}
 fi
-
 if [ -d $vader ]; then
     [[ ! -L vader.vim ]] && ln -s $vader vader.vim
 else
     git clone https://github.com/junegunn/vader.vim.git
 fi
 
-VIM_SERVERNAME="DIMINACTIVE_TESTS_$RANDOM"
+# Use a separate tmux listen socket.
 TMUX='tmux -L diminactive_tests'
-VIM="HOME=/dev/null vim --servername $VIM_SERVERNAME -Nu vimrc -i NONE"
+TMUX_SESSION_NAME="session_$RANDOM"
+VIM="HOME=/dev/null vim -Nu vimrc -i NONE"
 
 # Use a stamp file to indicate test failure (inside tmux).
-STAMP_RET_TESTS=stamp.ret_tests
+STAMP_RET_TESTS=$(mktemp --tmpdir diminactive_tests_vim_exitcode_XXX)
+# Use a stamp file to indicate when Vim is ready.
+STAMP_VIM_READY=$(mktemp --tmpdir diminactive_tests_vim_ready_XXX)
+# Rewind timestamp, Vim will update it.
+touch -r . $STAMP_VIM_READY
 TMUX_PANE_CONTENTS=$(mktemp --tmpdir diminactive_tmux_contents_XXX)
 
-echo Starting tmux session.
-echo To inspect it manually: $TMUX attach
 
+echo Starting tmux session.
+echo To inspect it manually: $TMUX attach -t $TMUX_SESSION_NAME
+
+# Build the tmux command.
+# It captures the exit code of vim.
 TMUX_SESSION_CMD="echo '$VIM'; $VIM ; \
   ret=\$?; echo \$ret > $STAMP_RET_TESTS; \
-  echo Exit code: \$ret;"
+  echo Exit code: \$ret"
 
 # Capture pane contents when not attaching to tmux, add `read` otherwise.
 if [ "$ATTACH_TO_TMUX" = 1 ]; then
@@ -59,35 +68,14 @@ cat_tmux_contents() {
   rm $f
 }
 
-# DEBUG TRAVIS
-echo "DEBUG==1"
-HOME=/dev/null vim -V1 --servername DIMINACTIVE_TESTS_1 -Nu vimrc -i NONE -c 'q'
-vim -V1 --servername DIMINACTIVE_TESTS_1 -Nu vimrc -i NONE -c 'q'
-vim -V1 -Nu vimrc -i NONE -c 'q'
-
-echo "DEBUG==2"
-tmux new-session -P -d
-tmux set-option remain-on-exit on
-tmux new-window -d "vim -V1 -Nu vimrc -i NONE -c 'q'"
-sleep 2
-f=$(mktemp --tmpdir cat_tmux_contents.XXX)
-tmux capture-pane -S -32000 \; save-buffer $f
-
-echo "DEBUG==3"
-tmux new-window -d "vim --servername foo -V1 -Nu vimrc -i NONE -c 'echo v:servername'"
-sleep 2
-f=$(mktemp --tmpdir cat_tmux_contents.XXX)
-tmux capture-pane -S -32000 \; save-buffer $f
-
-echo "REAL"
-$TMUX new-session -P -d "$TMUX_SESSION_CMD"
+$TMUX new-session -s $TMUX_SESSION_NAME -d "$TMUX_SESSION_CMD"
 
 printf "Waiting for Vim to listen"
 for (( max_wait=10; --max_wait; )); do
-  echo $max_wait
   printf '.'
-  if [ "$(vim --servername $VIM_SERVERNAME \
-        --remote-expr 'has("vim_starting")' 2>/dev/null)" = "0" ]; then
+  $TMUX send-keys -l ":w! $STAMP_VIM_READY"
+
+  if [ "$STAMP_VIM_READY" -nt . ]; then
     break
   fi
   if [ -s "$TMUX_PANE_CONTENTS" ]; then
@@ -99,9 +87,6 @@ for (( max_wait=10; --max_wait; )); do
 done
 echo
 
-# DEBUG
-$TMUX list-sessions
-
 if [ "$max_wait" -lt 1 ]; then
   echo "Failed to connect to Vim!"
 
@@ -109,29 +94,31 @@ if [ "$max_wait" -lt 1 ]; then
     $TMUX attach
   else
     cat_tmux_contents
-    $TMUX kill-session
+    # $TMUX kill-session
   fi
   exit 3
 fi
 
-# Send Vader command to Vim server, using 'sh -c' to use HOME=..
-# Vader uses `:cquit` conditionally to make Vim exit with return code 1.
-sh -c "$VIM --remote-send ':Vader! *<cr>'"
+# Run the tests, using Vader. It uses `:cq` to quit with error code on failure.
+if [ "$VADER_KEEP" = 1 ]; then
+  $TMUX send-keys ':Vader *'
+else
+  $TMUX send-keys ':Vader! *'
+fi
 
 if [ "$ATTACH_TO_TMUX" = 1 ]; then
   $TMUX attach
+else
+  printf "Waiting for Vim to finish"
+  for (( max_wait=50; --max_wait; )); do
+    sleep 0.$(( 99/max_wait ))
+    if ! $TMUX has-session -t $TMUX_SESSION_NAME 2>/dev/null; then
+      break
+    fi
+    printf '.'
+  done
+  echo
 fi
-
-printf "Waiting for Vim to finish"
-for (( max_wait=50; --max_wait; )); do
-  sleep 0.5
-  printf '.'
-  if [ "$(vim --servername $VIM_SERVERNAME \
-        --remote-expr '1' 2>/dev/null)" != "1" ]; then
-    break
-  fi
-done
-echo
 
 if [ "$max_wait" -lt 1 ]; then
   echo "Vim did not finish in time!"
@@ -140,8 +127,10 @@ elif [ "$ATTACH_TO_TMUX" = 0 ]; then
   cat_tmux_contents
 fi
 
-if [ -f "$STAMP_RET_TESTS" ]; then
+if [ -s "$STAMP_RET_TESTS" ]; then
   ret=$(cat "$STAMP_RET_TESTS")
   rm "$STAMP_RET_TESTS"
   exit $ret
 fi
+
+exit 4
