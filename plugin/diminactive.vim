@@ -307,16 +307,8 @@ fun! s:Enter(...)
   call s:EnterWindow(tabnr, winnr)
 
   if ! gettabwinvar(tabnr, winnr, 'diminactive_stored_orig')
-    let cuc = gettabwinvar(tabnr, winnr, 'diminactive_orig_cuc')
-    if ! cuc
-      return
-    endif
 
     call s:Debug('Enter: colorcolumn: nothing to restore!')
-
-    " EXPERIMENTAL: store the current setting.
-    call s:store_orig_colorcolumn(tabnr, winnr, bufnr)
-    " call s:Debug('diminactive_orig_cuc: '.gettabwinvar(tabnr, winnr, 'diminactive_orig_cuc'))
   endif
   let s:debug_indent-=1
 endfun
@@ -352,19 +344,15 @@ fun! s:restore_colorcolumn(tabnr, winnr)
     return
   endif
 
+  " Set colorcolumn: falls back to "", which is required, when an existing
+  " buffer gets opened again in a new window: Vim then uses the last
+  " colorcolumn setting (which might come from our s:Leave!)
   let cuc = gettabwinvar(a:tabnr, a:winnr, 'diminactive_orig_cuc')
   call s:Debug('restore_colorcolumn: '.cuc, {'t': a:tabnr, 'w': a:winnr})
-  if ! cuc
-    call s:Debug('restore_colorcolumn: nothing to restore!')
-  else
-    " Set colorcolumn: falls back to "", which is required, when an existing
-    " buffer gets opened again in a new window: Vim then uses the last
-    " colorcolumn setting (which might come from our s:Leave!)
-    call settabwinvar(a:tabnr, a:winnr, '&colorcolumn', cuc)
+  call settabwinvar(a:tabnr, a:winnr, '&colorcolumn', cuc)
 
-    " After restoring the original setting, pick up any user changes again.
-    call settabwinvar(a:tabnr, a:winnr, 'diminactive_stored_orig', 0)
-  endif
+  " After restoring the original setting, pick up any user changes again.
+  call settabwinvar(a:tabnr, a:winnr, 'diminactive_stored_orig', 0)
 endfun
 
 fun! s:store_orig_colorcolumn(tabnr, winnr, bufnr)
