@@ -9,6 +9,18 @@ set -e
 # Attach to tmux? Defaults to $VADER_KEEP.
 : ${ATTACH_TO_TMUX:=$VADER_KEEP}
 
+# How long to wait for Vim to finish running the tests (in seconds)?
+: ${TIMEOUT:=5}
+# How long to wait for Vim to listen for commands (startup, in seconds)?
+: ${TIMEOUT_LISTEN:=3}
+
+# Attach to tmux on timeout?
+if [ "$CI" != true ]; then
+  ATTACH_TO_TMUX_ON_TIMEOUT=1
+else
+  ATTACH_TO_TMUX_ON_TIMEOUT=0
+fi
+
 # Change to current dir (POSIXly).
 cd -P -- "$(dirname -- "$0")"
 
@@ -71,9 +83,12 @@ cat_tmux_contents() {
 $TMUX new-session -s $TMUX_SESSION_NAME -d "$TMUX_SESSION_CMD"
 
 printf "Waiting for Vim to listen"
-for (( max_wait=10; --max_wait; )); do
+for (( max_wait=$((TIMEOUT_LISTEN * 10)); --max_wait; )); do
   printf '.'
-  $TMUX send-keys -l ":w! $STAMP_VIM_READY"
+  # $TMUX send-keys -l ":w! $STAMP_VIM_READY\"
+  $TMUX send-keys -l ":!touch $STAMP_VIM_READY"
+  sleep 0.1
+  $TMUX send-keys -l ""
 
   if [ "$STAMP_VIM_READY" -nt . ]; then
     break
@@ -82,15 +97,13 @@ for (( max_wait=10; --max_wait; )); do
     # tmux pane contents has been created, maybe Vim failed to start?!
     break
   fi
-  # Sleep for: 0.11, .., 0.24, .., 0.99
-  sleep 0.$(( 99/max_wait ))
 done
 echo
 
 if [ "$max_wait" -lt 1 ]; then
   echo "Failed to connect to Vim!"
 
-  if [ "$ATTACH_TO_TMUX" = 1 ]; then
+  if [ "$ATTACH_TO_TMUX" = 1 ] || [ "$ATTACH_TO_TMUX_ON_TIMEOUT" = 1 ]; then
     $TMUX attach
   else
     cat_tmux_contents
@@ -110,8 +123,8 @@ if [ "$ATTACH_TO_TMUX" = 1 ]; then
   $TMUX attach
 else
   printf "Waiting for Vim to finish"
-  for (( max_wait=50; --max_wait; )); do
-    sleep 0.$(( 99/max_wait ))
+  for (( max_wait=$((TIMEOUT * 5)); --max_wait; )); do
+    sleep 0.2
     if ! $TMUX has-session -t $TMUX_SESSION_NAME 2>/dev/null; then
       break
     fi
@@ -122,7 +135,11 @@ fi
 
 if [ "$max_wait" -lt 1 ]; then
   echo "Vim did not finish in time!"
-  cat_tmux_contents
+  if [ "$ATTACH_TO_TMUX_ON_TIMEOUT" = 1 ]; then
+    $TMUX attach
+  else
+    cat_tmux_contents
+  fi
 elif [ "$ATTACH_TO_TMUX" = 0 ]; then
   cat_tmux_contents
 fi
