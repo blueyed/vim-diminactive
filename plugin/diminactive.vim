@@ -241,9 +241,9 @@ fun! s:should_get_dimmed(tabnr, winnr, ...)
     endif
   endif
 
+  " Backwards-compatible for: if !getbufvar(bufnr, 'diminactive', 1) == 0
   let b = getbufvar(bufnr, 'diminactive')
   if !b && type(b) != type('')
-  " if !getbufvar(bufnr, 'diminactive', 1) == 0
     call s:Debug('b:diminactive is false: not dimming',
           \ {'t': a:tabnr, 'w': a:winnr, 'b': bufnr})
     return 0
