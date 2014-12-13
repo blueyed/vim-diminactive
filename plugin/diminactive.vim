@@ -65,15 +65,81 @@ if !exists('g:diminactive_max_cols')
 endif
 
 " Debug helper {{{2
+let s:counter_bufs=0
+let s:counter_wins=0
+let s:debug_indent=-1
 fun! s:Debug(...)
   if ! g:diminactive_debug
     return
   endif
-  if a:0 == 1 && type(a:1) == type("")
-    echom 'diminactive: '.a:1
-  else
-    echom 'diminactive: '.string(a:000)
+
+  let winid = -1
+  let bufid = -1
+  if a:0 > 1
+    let idinfo = a:2
+    if has_key(idinfo, 'b')
+      let bufid = DimInactiveBufId(idinfo['b'])
+    end
+    if has_key(idinfo, 'w')
+      let winid = DimInactiveWinId(idinfo['w'], get(idinfo, 't', -1))
+    end
   endif
+
+  let msg ='diminactive: '
+  if s:debug_indent > 0
+    for _ in range(1, s:debug_indent)
+      let msg .= '  '
+    endfor
+  endif
+  if a:0 > 1 && type(a:1) == type([])
+    let msg .= string(a:000)
+  else
+    let msg .= a:1
+  endif
+  if winid != -1
+    let msg .= ' ['.winid.']'
+  endif
+  if bufid != -1
+    let msg .= ' ['.bufid.']'
+  endif
+  echom msg
+endfun
+fun! s:DebugIndent(...)
+  call call('s:Debug', a:000)
+  let s:debug_indent += 1
+endfun
+
+fun! DimInactiveBufId(...)
+  let b = a:0 ? a:1 : bufnr('%')
+  return
+
+  let bufid = getbufvar(b, 'diminactive_id')
+  if bufid == ""
+    let s:counter_bufs+=1
+    let bufid = s:counter_bufs
+    " call setbufvar(b, 'diminactive_id', bufid)
+  endif
+  return 'b:'.bufid
+endfun
+
+" Optional 2nd arg: tabnr
+fun! DimInactiveWinId(...)
+  let w = a:0 ? a:1 : winnr()
+  if a:0 > 1 && a:2 != -1
+    let winid = gettabwinvar(a:1, w, 'diminactive_id', -1)
+  else
+    let winid = getwinvar(w, 'diminactive_id', -1)
+  endif
+  if winid == -1
+    let s:counter_wins+=1
+    let winid = s:counter_wins
+    if a:0 > 1
+      call settabwinvar(a:1, w, 'diminactive_id', winid)
+    else
+      call setwinvar(w, 'diminactive_id', winid)
+    endif
+  endif
+  return 'w:'.winid
 endfun
 " }}}1
 
@@ -85,7 +151,7 @@ fun! s:SetupWindows(...)
   let tabnr = a:0 ? a:1 : tabpagenr()
   let refresh = a:0 > 1 ? a:2 : 0
 
-  call s:Debug('SetupWindows', tabnr, a:0)
+  call s:Debug('SetupWindows: tab: '.tabnr.', refresh: '.refresh)
 
   let windows = range(1, tabpagewinnr(tabnr, '$'))
   for winnr in windows
@@ -114,7 +180,6 @@ fun! s:SetupTabs(...)
   let tabs = [curtab] + _
 
   for tab in tabs
-    call s:Debug("LOOP TAB: ".tab)
     call s:SetupWindows(tab, refresh)
   endfor
 endfun
@@ -133,31 +198,32 @@ endfun
 
 
 fun! s:set_syntax(b, s)
-  call s:Debug('set_syntax', 'buf: '.a:b, 'set: '.a:s)
+  call s:DebugIndent('set_syntax: set:'.a:s, {'buf': a:b})
   if a:s
     let orig_syntax = get(s:diminactive_orig_syntax, a:b, '')
     if len(orig_syntax)
-      call s:Debug('Restoring orig_syntax', a:b, orig_syntax)
+      call s:Debug('Restoring orig_syntax: '.orig_syntax, {'b': a:b})
       call setbufvar(a:b, '&syntax', orig_syntax)
       call remove(s:diminactive_orig_syntax, a:b)
     else
-      call s:Debug('set_syntax: nothing to restore!', a:b, orig_syntax)
+      call s:Debug('set_syntax: nothing to restore!', {'b': a:b})
     endif
   else
     let orig_syntax = get(s:diminactive_orig_syntax, a:b, '')
     if orig_syntax
-      call s:Debug('set_syntax: off: should be off already!', a:b, orig_syntax)
+      call s:Debug('set_syntax: off: should be off already!')
     else
       let syntax = getbufvar(a:b, '&syntax')
       if syntax != 'off'
-        call s:Debug('set_syntax: storing', a:b, syntax)
+        call s:Debug('set_syntax: storing')
         let s:diminactive_orig_syntax[a:b] = syntax
         call setbufvar(a:b, '&syntax', 'off')
       else
-        call s:Debug('set_syntax: already off!', a:b)
+        call s:Debug('set_syntax: already off!')
       endif
     endif
   endif
+  let s:debug_indent -= 1
 endfun
 
 
@@ -170,18 +236,22 @@ fun! s:should_get_dimmed(tabnr, winnr, ...)
     let cb_r = DimInactiveCallback(a:tabnr, a:winnr, bufnr)
     if !cb_r
       call s:Debug('should_get_dimmed: callback returned '.string(cb_r)
-            \ .': not dimming', a:tabnr, a:winnr)
+            \ .': not dimming', {'t':a:tabnr, 'w':a:winnr, 'b':bufnr})
       return 0
     endif
   endif
 
-  if getbufvar(bufnr, 'diminactive') == ''
-    call s:Debug('b:diminactive is false: not dimming', a:tabnr, a:winnr, bufnr)
+  let b = getbufvar(bufnr, 'diminactive')
+  if !b && type(b) != type('')
+  " if !getbufvar(bufnr, 'diminactive', 1) == 0
+    call s:Debug('b:diminactive is false: not dimming',
+          \ {'t': a:tabnr, 'w': a:winnr, 'b': bufnr})
     return 0
   endif
 
   if ! gettabwinvar(a:tabnr, a:winnr, 'diminactive', 1)
-    call s:Debug('w:diminactive is false: not dimming', a:tabnr, a:winnr)
+    call s:Debug('w:diminactive is false: not dimming',
+          \ {'t': a:tabnr, 'w': a:winnr, 'b': bufnr})
     return 0
   endif
 
@@ -204,11 +274,11 @@ fun! s:Enter(...)
   let winnr = a:0 > 1 ? a:2 : winnr()
   let bufnr = a:0 > 2 ? a:3 : s:bufnr(tabnr, winnr)
 
-  call s:Debug('Enter: tab: '.tabnr.', win: '.winnr
-        \ .', buf: '.bufnr.' ['.fnamemodify(bufname(bufnr), ':t').']')
+  call s:DebugIndent('Enter', {'t': tabnr, 'w': winnr, 'b': bufnr})
 
   if get(g:, 'SessionLoad', 0)
     call s:DelegateForSessionLoad()
+    let s:debug_indent-=1
     return
   endif
 
@@ -222,7 +292,6 @@ fun! s:Enter(...)
       if index(checked, b) != -1
         continue
       endif
-      call s:Debug("CHECK", b, w, tabnr, string(checked))
       if b != bufnr && s:should_get_dimmed(tabnr, w, b)
         call s:set_syntax(b, 0)
       endif
@@ -249,6 +318,7 @@ fun! s:Enter(...)
     call s:store_orig_colorcolumn(tabnr, winnr, bufnr)
     " call s:Debug('diminactive_orig_cuc: '.gettabwinvar(tabnr, winnr, 'diminactive_orig_cuc'))
   endif
+  let s:debug_indent-=1
 endfun
 
 
@@ -260,7 +330,7 @@ fun! s:EnterWindow(...)
   let winnr = a:0 > 1 ? a:2 : winnr()
   let bufnr = a:0 > 2 ? a:3 : s:bufnr(tabnr, winnr)
 
-  call s:Debug('EnterWindow: tab: '.tabnr.', win: '.winnr.', buf: '.bufnr)
+  call s:DebugIndent('EnterWindow', {'t': tabnr, 'w': winnr, 'b': bufnr})
 
   call s:restore_colorcolumn(tabnr, winnr)
 
@@ -273,22 +343,23 @@ fun! s:EnterWindow(...)
       call settabwinvar(tabnr, winnr, 'diminactive_left_window', 0)
     endif
   endfor
+  let s:debug_indent-=1
 endfun
 
 fun! s:restore_colorcolumn(tabnr, winnr)
   if !gettabwinvar(a:tabnr, a:winnr, 'diminactive_stored_orig')
-    call s:Debug('restore_colorcolumn: nothing stored!')
+    call s:Debug('restore_colorcolumn: nothing stored!', {'t':a:tabnr, 'w':a:winnr})
     return
   endif
 
   let cuc = gettabwinvar(a:tabnr, a:winnr, 'diminactive_orig_cuc')
+  call s:Debug('restore_colorcolumn: '.cuc, {'t': a:tabnr, 'w': a:winnr})
   if ! cuc
     call s:Debug('restore_colorcolumn: nothing to restore!')
   else
     " Set colorcolumn: falls back to "", which is required, when an existing
     " buffer gets opened again in a new window: Vim then uses the last
     " colorcolumn setting (which might come from our s:Leave!)
-    call s:Debug('restore_colorcolumn: restoring for tab: '.a:tabnr.', win: '.a:winnr.', &cc: '.cuc)
     call settabwinvar(a:tabnr, a:winnr, '&colorcolumn', cuc)
 
     " After restoring the original setting, pick up any user changes again.
@@ -299,14 +370,15 @@ endfun
 fun! s:store_orig_colorcolumn(tabnr, winnr, bufnr)
   " Store original settings, but not on VimResized / until we have
   " entered the buffer again.
+  let orig_cuc = gettabwinvar(a:tabnr, a:winnr, '&colorcolumn')
   if gettabwinvar(a:tabnr, a:winnr, 'diminactive_stored_orig')
         \ || ! g:diminactive_use_colorcolumn
+    call s:Debug('store_orig_colorcolumn: do not store. saved: '.orig_cuc.'.')
     return 0
   endif
 
-  let orig_cuc = gettabwinvar(a:tabnr, a:winnr, '&colorcolumn')
-  call s:Debug('colorcolumn: storing orig setting for',
-        \ 'tab: '.a:tabnr, 'win: '.a:winnr, 'buf: '.a:bufnr)
+  call s:Debug('store_orig_colorcolumn: &cc: '.orig_cuc,
+        \ {'t': a:tabnr, 'w': a:winnr, 'b': a:bufnr})
   call settabwinvar(a:tabnr, a:winnr, 'diminactive_orig_cuc', orig_cuc)
 
   " Save it also in a buffer local var to work around Vim applying
@@ -324,15 +396,17 @@ fun! s:Leave(...)
   let winnr = a:0 > 1 ? a:2 : winnr()
   let bufnr = a:0 > 2 ? a:3 : s:bufnr(tabnr, winnr)
 
-  call s:Debug('Leave: tab: '.tabnr.', win: '.winnr
-        \ .', buf: '.bufnr.' ['.fnamemodify(bufname(bufnr), ':t').']')
+  call s:DebugIndent('Leave', {'t': tabnr, 'w': winnr, 'b': bufnr})
 
   if get(g:, 'SessionLoad', 0)
     call s:DelegateForSessionLoad()
+    let s:debug_indent-=1
     return
   endif
 
   if ! s:should_get_dimmed(tabnr, winnr, bufnr)
+    call s:Debug('Should not get dimmed.')
+    let s:debug_indent-=1
     return
   endif
 
@@ -358,7 +432,7 @@ fun! s:Leave(...)
 
     " Build &colorcolumn setting.
     let l:range = join(range(1, l:width), ',')
-    call s:Debug('Leave: setting colorcolumn.')
+    call s:Debug('Applying colorcolumn')
     call settabwinvar(tabnr, winnr, '&colorcolumn', l:range)
   else
     call s:Debug('Leave: colorcolumn: skipped/disabled.')
@@ -367,6 +441,7 @@ fun! s:Leave(...)
   if g:diminactive_use_syntax
     call s:set_syntax(bufnr, 0)
   endif
+  let s:debug_indent-=1
 endfun
 
 
@@ -374,7 +449,7 @@ endfun
 fun! s:Setup(...)
   let refresh = a:0 ? a:1 : 0
 
-  call s:Debug('Setup', g:diminactive, refresh)
+  call s:DebugIndent('Setup: g:diminactive: '.g:diminactive.', refresh:'.refresh)
 
   " Delegate setup to VimEnter event on startup.
   if has('vim_starting')
@@ -383,6 +458,7 @@ fun! s:Setup(...)
       au!
       exec 'au VimEnter * call s:Setup('.refresh.')'
     augroup END
+    let s:debug_indent-=1
     return
   endif
 
@@ -397,19 +473,20 @@ fun! s:Setup(...)
     if g:diminactive
       " Mark left windows, and handle them in WinEnter, _after_ entering the
       " new one (otherwise &colorcolumn settings might get copied over).
-      au WinLeave             * call s:Debug('EVENT: WinLeave')
+      au WinLeave             * call s:Debug('EVENT: WinLeave', {'w': winnr()})
             \ | let w:diminactive_left_window = 1
       " Using BufWinEnter additionally, because otherwise an existing buffer
       " in a new (tab) window will be dimmed. Somehow the &colorcolumn gets
       " re-used then (Vim 7.4.192).
       " NOTE: previously used BufEnter, but that might be too much / not
       " required.
-      au BufEnter   * call s:Debug('EVENT: BufEnter') | call s:Enter()
-      au WinEnter   * call s:Debug('EVENT: WinEnter') | call s:EnterWindow()
+      au BufEnter   * call s:Debug('EVENT: BufEnter', {'b': bufnr('%')}) | call s:Enter()
+      au WinEnter   * call s:Debug('EVENT: WinEnter', {'w': winnr()}) | call s:EnterWindow()
       au VimResized * call s:Debug('EVENT: VimResized') | call s:SetupWindows()
       au TabEnter   * call s:Debug('EVENT: TabEnter') | call s:SetupWindows()
     endif
   augroup END
+  let s:debug_indent-=1
 endfun
 " }}}1
 
