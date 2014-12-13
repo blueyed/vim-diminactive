@@ -175,7 +175,7 @@ fun! s:should_get_dimmed(tabnr, winnr, ...)
     endif
   endif
 
-  if ! getbufvar(bufnr, 'diminactive', 1)
+  if getbufvar(bufnr, 'diminactive') == ''
     call s:Debug('b:diminactive is false: not dimming', a:tabnr, a:winnr, bufnr)
     return 0
   endif
