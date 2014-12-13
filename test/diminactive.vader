@@ -1,0 +1,23 @@
+Execute (colorcolumn in new window):
+  new
+  AssertEqual winnr(), 2
+  AssertEqual &cc, "75"
+  AssertEqual getwinvar(1, '&cc'), "75"
+
+  wincmd w
+  AssertEqual winnr(), 1
+  AssertEqual &cc, "75"
+  q
+
+Execute (keep custom colorcolumn):
+  set cc=42
+  new
+  AssertEqual &cc, "42"
+  wincmd w
+  AssertEqual &cc, "42"
+  set cc=
+  wincmd w
+  AssertEqual &cc, "42"
+  wincmd w
+  AssertEqual &cc, ""
+  q

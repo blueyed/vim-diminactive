@@ -1,0 +1,18 @@
+language: vim
+
+install:
+  - sudo add-apt-repository -y ppa:pi-rho/dev
+  # # Not for Precise.. :/
+  # # - sudo add-apt-repository -y ppa:pkg-vim/vim-daily
+  - sudo apt-get update
+
+  - sudo apt-get install -y tmux
+  # - hg clone https://vim.googlecode.com/hg vim
+  # - ( cd vim && sudo make install )
+
+before_script:
+  - tmux -V
+  - vim --version
+
+script:
+  - make travis
