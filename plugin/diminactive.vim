@@ -6,6 +6,7 @@
 
 " TODO: hook into window layout changes (e.g. CTRL_W-L) and redraw all windows.
 "       Not possible because of lacking autocommand support?!
+" NOTE: default return value for `gettabwinvar` requires Vim v7-3-831.
 
 " Plugin boilerplate {{{1
 if exists("g:loaded_diminactive")
@@ -128,11 +129,11 @@ endfun
 fun! DimInactiveWinId(...)
   let w = a:0 ? a:1 : winnr()
   if a:0 > 1 && a:2 != -1
-    let winid = gettabwinvar(a:1, w, 'diminactive_id', -1)
+    let winid = gettabwinvar(a:1, w, 'diminactive_id')
   else
-    let winid = getwinvar(w, 'diminactive_id', -1)
+    let winid = getwinvar(w, 'diminactive_id')
   endif
-  if winid == -1
+  if winid == ''
     let s:counter_wins+=1
     let winid = s:counter_wins
     if a:0 > 1
@@ -244,7 +245,7 @@ fun! s:should_get_dimmed(tabnr, winnr, ...)
     endif
   endif
 
-  " Backwards-compatible for: if !getbufvar(bufnr, 'diminactive', 1) == 0
+  " Backwards-compatible for: if !getbufvar(bufnr, 'diminactive', 1)
   let b = getbufvar(bufnr, 'diminactive')
   if !b && type(b) != type('')
     call s:Debug('b:diminactive is false: not dimming',
@@ -252,7 +253,8 @@ fun! s:should_get_dimmed(tabnr, winnr, ...)
     return 0
   endif
 
-  if ! gettabwinvar(a:tabnr, a:winnr, 'diminactive', 1)
+  let w = gettabwinvar(a:tabnr, a:winnr, 'diminactive')
+  if !w && type(w) != type('')
     call s:Debug('w:diminactive is false: not dimming',
           \ {'t': a:tabnr, 'w': a:winnr, 'b': bufnr})
     return 0
