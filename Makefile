@@ -8,7 +8,7 @@ testi:
 manual:
 	cd test && HOME=/dev/null vim -Nu vimrc -i viminfo
 
-tryvis: CI=true
+travis: CI=true
 travis: test
 
 .PHONY: test travis
