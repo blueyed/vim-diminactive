@@ -44,9 +44,6 @@ VIM="HOME=/dev/null vim -Nu vimrc -i NONE"
 # Use a stamp file to indicate test failure (inside tmux).
 STAMP_RET_TESTS=$(mktemp --tmpdir diminactive_tests_vim_exitcode_XXX)
 # Use a stamp file to indicate when Vim is ready.
-STAMP_VIM_READY=$(mktemp --tmpdir diminactive_tests_vim_ready_XXX)
-# Rewind timestamp, Vim will update it.
-touch -r . $STAMP_VIM_READY
 TMUX_PANE_CONTENTS=$(mktemp --tmpdir diminactive_tmux_contents_XXX)
 
 
@@ -85,16 +82,16 @@ $TMUX new-session -s $TMUX_SESSION_NAME -d "$TMUX_SESSION_CMD"
 printf "Waiting for Vim to listen"
 for (( max_wait=$((TIMEOUT_LISTEN * 10)); --max_wait; )); do
   printf '.'
-  # $TMUX send-keys -l ":w! $STAMP_VIM_READY\"
-  $TMUX send-keys -l ":!touch $STAMP_VIM_READY"
-  sleep 0.1
-  $TMUX send-keys -l ""
 
-  if [ "$STAMP_VIM_READY" -nt . ]; then
+  if $TMUX capture-pane \; show-buffer | grep -q 'VIM'; then
     break
   fi
+  sleep 0.1
+
   if [ -s "$TMUX_PANE_CONTENTS" ]; then
     # tmux pane contents has been created, maybe Vim failed to start?!
+    printf "\ntmux pane contents ($TMUX_PANE_CONTENTS) appeared, abort waiting."
+    max_wait=0
     break
   fi
 done
@@ -119,6 +116,8 @@ else
   $TMUX send-keys ':Vader! *'
 fi
 
+ret=
+
 if [ "$ATTACH_TO_TMUX" = 1 ]; then
   $TMUX attach
 else
@@ -128,12 +127,25 @@ else
     if ! $TMUX has-session -t $TMUX_SESSION_NAME 2>/dev/null; then
       break
     fi
+
+    # Detect Vim waiting for input, e.g. when an error occurred.
+    if [ "$ATTACH_TO_TMUX_ON_TIMEOUT" = 1 ] \
+      && $TMUX capture-pane \; show-buffer \
+        | grep -q 'Press ENTER or type command to continue'; then
+      echo
+      echo "Detected Vim waiting for input, attaching.."
+      $TMUX attach
+      ret=6
+      break
+    fi
+
     printf '.'
   done
   echo
 fi
 
 if [ "$max_wait" -lt 1 ]; then
+  ret=5
   echo "Vim did not finish in time!"
   if [ "$ATTACH_TO_TMUX_ON_TIMEOUT" = 1 ]; then
     $TMUX attach
@@ -145,9 +157,11 @@ elif [ "$ATTACH_TO_TMUX" = 0 ]; then
 fi
 
 if [ -s "$STAMP_RET_TESTS" ]; then
-  ret=$(cat "$STAMP_RET_TESTS")
+  if [ -z "$ret" ]; then
+    ret=$(cat "$STAMP_RET_TESTS")
+  fi
   rm "$STAMP_RET_TESTS"
-  exit $ret
 fi
+exit $ret
 
 exit 4
