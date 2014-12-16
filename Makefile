@@ -1,6 +1,7 @@
 test:
 	test/run
 
+# Interactive tests, keep Vader open.
 testi: export VADER_KEEP=1
 testi:
 	test/run
@@ -10,7 +11,17 @@ testi:
 manual:
 	cd test && HOME=/dev/null vim -XNu vimrc -i viminfo
 
+# Target for Travis (which sets CI=true already, but this allows to simulate it).
 travis: CI=true
 travis: test
+
+# Targets for .vader files, absolute and relative.
+# This can be used with `b:dispatch = ':Make %'` in Vim.
+TESTS:=$(wildcard test/*.vader)
+uniq = $(if $1,$(firstword $1) $(call uniq,$(filter-out $(firstword $1),$1)))
+_TESTS_REL_AND_ABS:=$(call uniq,$(abspath $(TESTS)) $(TESTS))
+$(_TESTS_REL_AND_ABS):
+	test/run $@
+.PHONY: $(_TESTS_REL_AND_ABS)
 
 .PHONY: test travis

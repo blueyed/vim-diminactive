@@ -3,6 +3,17 @@
 # Exit on errors.
 set -e
 
+# Get args for Vader. This allows to call a specific test file only.
+if [ -z "$@" ]; then
+  VADER_ARGS='*'
+else
+  # Use provided args, without "test/" prefix.
+  for f; do
+    VADER_ARGS="${f#test/} "
+    shift
+  done
+fi
+
 # Keep Vader results open in Vim? (used by `make testi`)
 : ${VADER_KEEP:=0}
 
@@ -84,7 +95,9 @@ printf "Waiting for Vim to listen"
 for (( max_wait=$((TIMEOUT_LISTEN * 10)); --max_wait; )); do
   printf '.'
 
-  if $TMUX capture-pane \; show-buffer | grep -q 'VIM'; then
+  # Detect if Vim has started up. Do not check for contents in `:intro`, which
+  # gets removed on SIGWINCH(?), when run via vim-dispatch.
+  if $TMUX capture-pane \; show-buffer | grep -q '^~$'; then
     break
   fi
   sleep 0.1
@@ -112,9 +125,9 @@ fi
 
 # Run the tests, using Vader. It uses `:cq` to quit with error code on failure.
 if [ "$VADER_KEEP" = 1 ]; then
-  $TMUX send-keys ':Vader *'
+  $TMUX send-keys ":Vader $VADER_ARGS"
 else
-  $TMUX send-keys ':Vader! *'
+  $TMUX send-keys ":Vader! $VADER_ARGS"
 fi
 
 ret=
@@ -132,7 +145,7 @@ else
     # Detect Vim waiting for input, e.g. when an error occurred.
     if [ "$ATTACH_TO_TMUX_ON_TIMEOUT" = 1 ] \
       && $TMUX capture-pane \; show-buffer \
-        | grep -q 'Press ENTER or type command to continue'; then
+        | grep -qE 'Press ENTER or type command to continue|^-- More --$'; then
       echo
       echo "Detected Vim waiting for input, attaching.."
       $TMUX attach
