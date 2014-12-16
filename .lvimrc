@@ -1,0 +1,11 @@
+" Setup project specific settings via https://github.com/embear/vim-localvimrc.
+if g:localvimrc_sourced_once_for_file
+  finish
+endif
+
+if &ft == 'vader'
+  let b:dispatch = ':Make %'
+else
+  let b:dispatch = ':Make test'
+endif
+let &l:errorformat='%-P  Starting Vader: %f,%E%.%# (X)%\& %m,%I      >%\& %m,%Z,%-G%s,%-G'
