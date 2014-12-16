@@ -1,0 +1,5 @@
+# (Symlink to) Vader test dependency.
+test/vader.vim
+
+# viminfo used with "make manual".
+test/viminfo
