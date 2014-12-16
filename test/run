@@ -39,7 +39,8 @@ fi
 # Use a separate tmux listen socket.
 TMUX='tmux -L diminactive_tests'
 TMUX_SESSION_NAME="session_$RANDOM"
-VIM="HOME=/dev/null vim -Nu vimrc -i NONE"
+# -X: do not connect to X server.
+VIM="HOME=/dev/null vim -XNu vimrc -i NONE"
 
 # Use a stamp file to indicate test failure (inside tmux).
 STAMP_RET_TESTS=$(mktemp --tmpdir diminactive_tests_vim_exitcode_XXX)
