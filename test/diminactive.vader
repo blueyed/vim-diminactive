@@ -1,13 +1,17 @@
+Before:
+  tabnew
+After:
+  tabclose!
+
 Execute (colorcolumn in new window):
   new
   AssertEqual winnr(), 2
   AssertEqual &cc, "75"
-  AssertEqual getwinvar(1, '&cc'), "75"
+  AssertEqual getwinvar(1, '&cc'), join(range(1, g:diminactive_max_cols), ',')
 
   wincmd w
   AssertEqual winnr(), 1
   AssertEqual &cc, "75"
-  q
 
 Execute (keep custom colorcolumn):
   set cc=42
@@ -20,4 +24,15 @@ Execute (keep custom colorcolumn):
   AssertEqual &cc, "42"
   wincmd w
   AssertEqual &cc, ""
-  q
+
+Execute (after :only):
+  let bufnr = bufnr('%')
+  new
+  AssertEqual winnr(), 2
+  AssertEqual getwinvar(1, '&cc'), join(range(1, g:diminactive_max_cols), ',')
+  only
+  AssertEqual winnr(), 1
+  AssertEqual winnr('$'), 1
+  AssertEqual &cc, "75"
+  exec 'b'.bufnr
+  AssertEqual &cc, "75"

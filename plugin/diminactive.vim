@@ -29,6 +29,9 @@ endif
 " State of buffers original &syntax setting.
 let s:diminactive_orig_syntax = {}
 
+" Dict of &cc setting per buffer, used when it gets hidden.
+let s:buffer_cc = {}
+
 " Callback to decide if a window should get dimmed. {{{2
 " The default disables dimming for &diff windows, and non-normal buffers.
 if !exists('g:DimInactiveCallback')
@@ -109,15 +112,14 @@ fun! s:DebugIndent(...)
   let s:debug_indent += 1
 endfun
 
+let s:buffer_ids = {}
 fun! DimInactiveBufId(...)
   let b = a:0 ? a:1 : bufnr('%')
-  return
-
-  let bufid = getbufvar(b, 'diminactive_id')
+  let bufid = get(s:buffer_ids, b)  " Use a dict, because buffers cannot store a setting when hidden.
   if bufid == ""
     let s:counter_bufs+=1
     let bufid = s:counter_bufs
-    " call setbufvar(b, 'diminactive_id', bufid)
+    let s:buffer_ids[b] = bufid
   endif
   return 'b:'.bufid
 endfun
@@ -228,6 +230,7 @@ endfun
 
 
 " Optional 3rd arg: bufnr
+" Return: 1 if buffer should get dimmed.
 fun! s:should_get_dimmed(tabnr, winnr, ...)
   let bufnr = a:0 ? a:1 : s:bufnr(a:tabnr, a:winnr)
 
@@ -306,10 +309,6 @@ fun! s:Enter(...)
   " Trigger WinEnter processing for (always) correct buffer in the window.
   call s:EnterWindow(tabnr, winnr)
 
-  if ! gettabwinvar(tabnr, winnr, 'diminactive_stored_orig')
-
-    call s:Debug('Enter: colorcolumn: nothing to restore!')
-  endif
   let s:debug_indent-=1
 endfun
 
@@ -324,7 +323,7 @@ fun! s:EnterWindow(...)
 
   call s:DebugIndent('EnterWindow', {'t': tabnr, 'w': winnr, 'b': bufnr})
 
-  call s:restore_colorcolumn(tabnr, winnr)
+  call s:restore_colorcolumn(tabnr, winnr, bufnr)
 
   " Handle left windows, after handling entering the new window, because
   " it might derive the last set &colorcolumn setting.
@@ -338,40 +337,50 @@ fun! s:EnterWindow(...)
   let s:debug_indent-=1
 endfun
 
-fun! s:restore_colorcolumn(tabnr, winnr)
+fun! s:restore_colorcolumn(tabnr, winnr, bufnr)
+  call s:Debug('restore_colorcolumn: winbufnr: '.winbufnr(a:winnr),
+        \ {'t': a:tabnr, 'w': a:winnr, 'b': a:bufnr})
   if !gettabwinvar(a:tabnr, a:winnr, 'diminactive_stored_orig')
-    call s:Debug('restore_colorcolumn: nothing stored!', {'t':a:tabnr, 'w':a:winnr})
-    return
+    if !has_key(s:buffer_cc, a:bufnr)
+      call s:Debug('restore_colorcolumn: nothing stored!')
+      return
+    end
+    call s:Debug('restore_colorcolumn: using stored cc from buffer.')
+    let cc = s:buffer_cc[a:bufnr]
+  else
+    let cc = gettabwinvar(a:tabnr, a:winnr, 'diminactive_orig_cc')
   endif
 
   " Set colorcolumn: falls back to "", which is required, when an existing
   " buffer gets opened again in a new window: Vim then uses the last
   " colorcolumn setting (which might come from our s:Leave!)
-  let cuc = gettabwinvar(a:tabnr, a:winnr, 'diminactive_orig_cuc')
-  call s:Debug('restore_colorcolumn: '.cuc, {'t': a:tabnr, 'w': a:winnr})
-  call settabwinvar(a:tabnr, a:winnr, '&colorcolumn', cuc)
+  call s:Debug('restore_colorcolumn: '.cc, {'t': a:tabnr, 'w': a:winnr})
+  call settabwinvar(a:tabnr, a:winnr, '&colorcolumn', cc)
 
   " After restoring the original setting, pick up any user changes again.
   call settabwinvar(a:tabnr, a:winnr, 'diminactive_stored_orig', 0)
+  silent! unlet s:buffer_cc[a:bufnr]
 endfun
 
 fun! s:store_orig_colorcolumn(tabnr, winnr, bufnr)
   " Store original settings, but not on VimResized / until we have
   " entered the buffer again.
-  let orig_cuc = gettabwinvar(a:tabnr, a:winnr, '&colorcolumn')
-  if gettabwinvar(a:tabnr, a:winnr, 'diminactive_stored_orig')
-        \ || ! g:diminactive_use_colorcolumn
-    call s:Debug('store_orig_colorcolumn: do not store. saved: '.orig_cuc.'.')
+  if ! g:diminactive_use_colorcolumn
+    call s:Debug('store_orig_colorcolumn: do not store: deactivated.')
+  endif
+  let orig_cc = gettabwinvar(a:tabnr, a:winnr, '&colorcolumn')
+  let saved_cc = gettabwinvar(a:tabnr, a:winnr, 'diminactive_stored_orig')
+  if saved_cc
+        " \ || getbufvar(a:bufnr, 'diminactive_stored_orig')
+    call s:Debug('store_orig_colorcolumn: do not store. saved: '.saved_cc.'.')
     return 0
   endif
 
-  call s:Debug('store_orig_colorcolumn: &cc: '.orig_cuc,
+  call s:Debug('store_orig_colorcolumn: &cc: '.orig_cc,
         \ {'t': a:tabnr, 'w': a:winnr, 'b': a:bufnr})
-  call settabwinvar(a:tabnr, a:winnr, 'diminactive_orig_cuc', orig_cuc)
-
-  " Save it also in a buffer local var to work around Vim applying
-  " &colorcolumn (sometimes) to a new window for/from an existing buffer.
-  call setbufvar(a:bufnr, 'diminactive_orig_cuc_bufbak', orig_cuc)
+  call settabwinvar(a:tabnr, a:winnr, 'diminactive_orig_cc', orig_cc)
+  " Save it also for the buffer, which is required for 'new | only | b#'.
+  let s:buffer_cc[a:bufnr] = orig_cc
 
   call settabwinvar(a:tabnr, a:winnr, 'diminactive_stored_orig', 1)
   return 1
@@ -463,11 +472,6 @@ fun! s:Setup(...)
       " new one (otherwise &colorcolumn settings might get copied over).
       au WinLeave             * call s:Debug('EVENT: WinLeave', {'w': winnr()})
             \ | let w:diminactive_left_window = 1
-      " Using BufWinEnter additionally, because otherwise an existing buffer
-      " in a new (tab) window will be dimmed. Somehow the &colorcolumn gets
-      " re-used then (Vim 7.4.192).
-      " NOTE: previously used BufEnter, but that might be too much / not
-      " required.
       au BufEnter   * call s:Debug('EVENT: BufEnter', {'b': bufnr('%')}) | call s:Enter()
       au WinEnter   * call s:Debug('EVENT: WinEnter', {'w': winnr()}) | call s:EnterWindow()
       au VimResized * call s:Debug('EVENT: VimResized') | call s:SetupWindows()
