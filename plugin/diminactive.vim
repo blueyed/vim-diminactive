@@ -38,6 +38,7 @@ let s:buffer_cc = {}
 if !exists('g:DimInactiveCallback')
   fun! DimInactiveCallback(tabnr, winnr, bufnr)
     if gettabwinvar(a:tabnr, a:winnr, '&diff')
+      call s:Debug('Not dimming diff window.')
       return 0
     endif
     let bt = getbufvar(a:bufnr, '&buftype')
@@ -406,7 +407,6 @@ fun! s:Leave(...)
   endif
 
   if ! s:should_get_dimmed(tabnr, winnr, bufnr)
-    call s:Debug('Should not get dimmed.')
     let s:debug_indent-=1
     return
   endif
