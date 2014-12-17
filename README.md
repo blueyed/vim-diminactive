@@ -49,13 +49,33 @@ The following commands are provided to control it:
  - DimInactiveColorcolumnOn
  - DimInactiveColorcolumnOff
 
-### Control on the buffer level
- - DimInactiveBufferOff
- - DimInactiveBufferOn
-
 ### Control on the window level
- - DimInactiveWindowOff
- - DimInactiveWindowOn
+Dimming can be controlled on the window level, which overrides any buffer-local
+configuration (a buffer can be displayed in multiple windows).
+
+#### `DimInactiveWindowOff`
+Disable for this window.
+
+#### `DimInactiveWindowOn`
+Enable for this window.
+
+#### `DimInactiveWindowReset`
+Reset config on window level.
+
+### Control on the buffer level
+Dimming can be controlled on the buffer level.
+This gets overridden by window-local configuration (a buffer can be displayed
+in multiple windows).
+
+#### `DimInactiveBufferOff`
+Disable for this buffer.
+
+#### `DimInactiveBufferOn`
+Enable for this buffer.
+
+#### `DimInactiveBufferReset`
+Reset config on buffer level.
+
 
 ## Credits
 

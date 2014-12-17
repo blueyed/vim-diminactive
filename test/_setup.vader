@@ -1,0 +1,26 @@
+" Setup and helpers for all tests.
+
+Execute:
+  fun! AssertDimmed(...)
+    let w = a:0 ? a:1 : winnr()
+    let cmd = "AssertEqual '".escape(getwinvar(w, '&cc'), "'")
+        \ ."', '".escape(join(range(1, g:diminactive_max_cols), ","), "'")."'"
+    for a in a:000[1:]
+      let cmd .= ', '.a
+    endfor
+    exec cmd
+  endfun
+
+  fun! AssertNotDimmed(...)
+    let w = a:0 ? a:1 : winnr()
+    let cmd = "AssertNotEqual '".escape(getwinvar(w, '&cc'), "'")
+        \ ."', '".escape(join(range(1, g:diminactive_max_cols), ","), "'")."'"
+    for a in a:000[1:]
+      let cmd .= ', '.a
+    endfor
+    exec cmd
+    AssertNotEqual getwinvar(w, '&cc'), join(range(1, g:diminactive_max_cols), ',')
+  endfun
+
+  command! -nargs=+ AssertDimmed :call AssertDimmed(<args>)
+  command! -nargs=+ AssertNotDimmed :call AssertNotDimmed(<args>)

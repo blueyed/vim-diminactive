@@ -17,7 +17,7 @@ travis: test
 
 # Targets for .vader files, absolute and relative.
 # This can be used with `b:dispatch = ':Make %'` in Vim.
-TESTS:=$(wildcard test/*.vader)
+TESTS:=$(filter-out test/_%.vader,$(wildcard test/*.vader))
 uniq = $(if $1,$(firstword $1) $(call uniq,$(filter-out $(firstword $1),$1)))
 _TESTS_REL_AND_ABS:=$(call uniq,$(abspath $(TESTS)) $(TESTS))
 $(_TESTS_REL_AND_ABS):

@@ -40,8 +40,10 @@ if !exists('g:DimInactiveCallback')
     if gettabwinvar(a:tabnr, a:winnr, '&diff')
       return 0
     endif
-    if getbufvar(a:bufnr, '&buftype') != ''
-          \ && getbufvar(a:bufnr, '&filetype') != 'startify'
+    let bt = getbufvar(a:bufnr, '&buftype')
+    let ft = getbufvar(a:bufnr, '&filetype') != 'startify'
+    if bt != '' && ft != 'startify'
+      call s:Debug('Not dimming for buftype='.bt.', filetype='.ft.'.')
       return 0
     endif
     return 1
@@ -245,19 +247,19 @@ fun! s:should_get_dimmed(tabnr, winnr, ...)
     endif
   endif
 
-  " Backwards-compatible for: if !getbufvar(bufnr, 'diminactive', 1)
-  let b = getbufvar(bufnr, 'diminactive')
-  if !b && type(b) != type('')
-    call s:Debug('b:diminactive is false: not dimming',
+  let w = gettabwinvar(a:tabnr, a:winnr, 'diminactive')
+  if type(w) != type('')
+    call s:Debug('Use w:diminactive: '.w,
           \ {'t': a:tabnr, 'w': a:winnr, 'b': bufnr})
-    return 0
+    return w
   endif
 
-  let w = gettabwinvar(a:tabnr, a:winnr, 'diminactive')
-  if !w && type(w) != type('')
-    call s:Debug('w:diminactive is false: not dimming',
+  " Backwards-compatible for: if !getbufvar(bufnr, 'diminactive', 1)
+  let b = getbufvar(bufnr, 'diminactive')
+  if type(b) != type('')
+    call s:Debug('Use b:diminactive: '.b,
           \ {'t': a:tabnr, 'w': a:winnr, 'b': bufnr})
-    return 0
+    return b
   endif
 
   return g:diminactive
@@ -492,10 +494,12 @@ command! DimInactiveOff       let g:diminactive=0  | call s:Setup()
 command! DimInactiveToggle    let g:diminactive=!g:diminactive | call s:Setup()
 
 command! DimInactiveBufferOff let b:diminactive=0  | call s:Setup()
-command! DimInactiveBufferOn  unlet! b:diminactive | call s:Setup()
+command! DimInactiveBufferOn  let b:diminactive=1 | call s:Setup()
+command! DimInactiveBufferReset silent! unlet b:diminactive | call s:Setup()
 
 command! DimInactiveWindowOff let w:diminactive=0  | call s:EnterWindow()
-command! DimInactiveWindowOn  unlet! w:diminactive | call s:EnterWindow()
+command! DimInactiveWindowOn  let w:diminactive=1 | call s:EnterWindow()
+command! DimInactiveWindowReset silent! unlet w:diminactive | call s:Setup()
 
 command! DimInactiveSyntaxOn  let g:diminactive_use_syntax=1 | call s:Setup(1)
 command! DimInactiveSyntaxOff let g:diminactive_use_syntax=0 | call s:Setup(1)
