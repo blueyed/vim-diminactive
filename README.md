@@ -27,6 +27,19 @@ syntax method only:
 
     let g:diminactive_use_colorcolumn = 0
 
+### Highlighting group
+
+Vim's ColorColumn highlighting group is being used for this, which is red by
+default, and pink if undefined):
+
+    :hi ColorColumn
+    ColorColumn    xxx term=reverse ctermbg=1 guibg=DarkRed
+
+You can define a custom color yourself, in case your colorscheme does not use
+something sensible:
+
+    :hi ColorColumn ctermbg=0 guibg=#eee8d5
+
 ### The `syntax` method
 
 There is an option to disable syntax highlighting for inactive windows. It is
