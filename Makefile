@@ -24,4 +24,8 @@ $(_TESTS_REL_AND_ABS):
 	test/run $@
 .PHONY: $(_TESTS_REL_AND_ABS)
 
+tags:
+	ctags -R --langmap=vim:+.vader
+.PHONY: tags
+
 .PHONY: test travis
