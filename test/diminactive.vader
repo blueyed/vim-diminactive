@@ -41,7 +41,7 @@ Execute (after :only):
   AssertEqual &cc, "75"
 
 
-# Basic commands {{{
+# Basic commands {{{1
 
 Execute (DimInactiveOff):
   new
@@ -107,3 +107,21 @@ Execute (Help gets not dimmed):
   let w = winnr()
   wincmd w
   AssertNotDimmed w
+
+# Syntax method {{{1
+Execute (Syntax with new):
+  DimInactiveSyntaxOn
+  AssertEqual getwinvar(1, '&syntax'), ''
+  new
+  AssertEqual getwinvar(1, '&syntax'), 'off'
+  AssertEqual getwinvar(2, '&syntax'), ''
+
+Execute (TODO: Syntax with split):
+  DimInactiveSyntaxOn
+  AssertEqual getwinvar(1, '&syntax'), ''
+  sp
+  AssertEqual getwinvar(1, '&syntax'), 'off'
+  AssertEqual getwinvar(2, '&syntax'), ''
+
+
+# vim foldmethod=marker
