@@ -78,7 +78,7 @@ endif
 " Debug helper {{{2
 let s:counter_bufs=0
 let s:counter_wins=0
-let s:debug_indent=-1
+let s:debug_indent=0
 fun! s:Debug(...)
   if ! g:diminactive_debug
     return
