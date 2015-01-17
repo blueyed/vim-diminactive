@@ -208,7 +208,7 @@ endfun
 
 
 fun! s:set_syntax(b, s)
-  call s:DebugIndent('set_syntax: set:'.a:s, {'buf': a:b})
+  call s:DebugIndent('set_syntax: set:'.a:s, {'b': a:b})
   if a:s
     let orig_syntax = get(s:diminactive_orig_syntax, a:b, '')
     if len(orig_syntax)
@@ -337,9 +337,9 @@ fun! s:EnterWindow(...)
   " Handle left windows, after handling entering the new window, because
   " it might derive the last set &colorcolumn setting.
   call s:Debug('Handle left window(s)')
-  for winnr in range(1, tabpagewinnr(tabnr, '$'))
-    if gettabwinvar(tabnr, winnr, 'diminactive_left_window')
-      call s:Leave(tabnr, winnr)
+  for w in range(1, tabpagewinnr(tabnr, '$'))
+    if gettabwinvar(tabnr, w, 'diminactive_left_window')
+      call s:Leave(tabnr, w)
       noautocmd call settabwinvar(tabnr, w, 'diminactive_left_window', 0)
     endif
   endfor
@@ -478,7 +478,7 @@ fun! s:Setup(...)
     if g:diminactive
       " Mark left windows, and handle them in WinEnter, _after_ entering the
       " new one (otherwise &colorcolumn settings might get copied over).
-      au WinLeave             * call s:Debug('EVENT: WinLeave', {'w': winnr()})
+      au WinLeave   * call s:Debug('EVENT: WinLeave', {'w': winnr()})
             \ | let w:diminactive_left_window = 1
       au BufEnter   * call s:Debug('EVENT: BufEnter', {'b': bufnr('%')}) | call s:Enter()
       au WinEnter   * call s:Debug('EVENT: WinEnter', {'w': winnr()}) | call s:EnterWindow()
