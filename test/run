@@ -149,7 +149,7 @@ else
     # Detect Vim waiting for input, e.g. when an error occurred.
     if [ "$ATTACH_TO_TMUX_ON_TIMEOUT" = 1 ] \
       && $TMUX capture-pane \; show-buffer \
-        | grep -qE 'Press ENTER or type command to continue|^-- More --$'; then
+        | grep -qE 'Press ENTER or type command to continue|^-- More --$|Entering Debug mode.'; then
       echo
       echo "Detected Vim waiting for input, attaching.."
       $TMUX attach
