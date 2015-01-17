@@ -132,7 +132,7 @@ fun! DimInactiveBufId(...)
   return 'b:'.bufid
 endfun
 
-" Optional 2nd arg: tabnr
+" Optional 2nd arg: tabnr (-1 skips it, too).
 fun! DimInactiveWinId(...)
   let w = a:0 ? a:1 : winnr()
   if a:0 > 1 && a:2 != -1
@@ -143,7 +143,7 @@ fun! DimInactiveWinId(...)
   if winid == ''
     let s:counter_wins+=1
     let winid = s:counter_wins
-    if a:0 > 1
+    if a:0 > 1 && a:2 != -1
       noautocmd call settabwinvar(a:1, w, 'diminactive_id', winid)
     else
       call setwinvar(w, 'diminactive_id', winid)
