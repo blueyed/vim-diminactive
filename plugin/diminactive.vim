@@ -8,6 +8,10 @@
 "       Not possible because of lacking autocommand support?!
 " NOTE: default return value for `gettabwinvar` requires Vim v7-3-831.
 
+" NOTE: uses 'noautocmd settabwinvar' as workaround for Vim 7.3.429
+"       (used on Travis). This might trigger autocommands when used on
+"       non-current tab/win. See test "Syntax with new".
+
 " Plugin boilerplate {{{1
 if exists("g:loaded_diminactive")
   finish
@@ -140,7 +144,7 @@ fun! DimInactiveWinId(...)
     let s:counter_wins+=1
     let winid = s:counter_wins
     if a:0 > 1
-      call settabwinvar(a:1, w, 'diminactive_id', winid)
+      noautocmd call settabwinvar(a:1, w, 'diminactive_id', winid)
     else
       call setwinvar(w, 'diminactive_id', winid)
     endif
@@ -336,7 +340,7 @@ fun! s:EnterWindow(...)
   for winnr in range(1, tabpagewinnr(tabnr, '$'))
     if gettabwinvar(tabnr, winnr, 'diminactive_left_window')
       call s:Leave(tabnr, winnr)
-      call settabwinvar(tabnr, winnr, 'diminactive_left_window', 0)
+      noautocmd call settabwinvar(tabnr, w, 'diminactive_left_window', 0)
     endif
   endfor
   let s:debug_indent-=1
@@ -360,10 +364,10 @@ fun! s:restore_colorcolumn(tabnr, winnr, bufnr)
   " buffer gets opened again in a new window: Vim then uses the last
   " colorcolumn setting (which might come from our s:Leave!)
   call s:Debug('restore_colorcolumn: '.cc, {'t': a:tabnr, 'w': a:winnr})
-  call settabwinvar(a:tabnr, a:winnr, '&colorcolumn', cc)
+  noautocmd call settabwinvar(a:tabnr, a:winnr, '&colorcolumn', cc)
 
   " After restoring the original setting, pick up any user changes again.
-  call settabwinvar(a:tabnr, a:winnr, 'diminactive_stored_orig', 0)
+  noautocmd call settabwinvar(a:tabnr, a:winnr, 'diminactive_stored_orig', 0)
   silent! unlet s:buffer_cc[a:bufnr]
 endfun
 
@@ -383,11 +387,11 @@ fun! s:store_orig_colorcolumn(tabnr, winnr, bufnr)
 
   call s:Debug('store_orig_colorcolumn: &cc: '.orig_cc,
         \ {'t': a:tabnr, 'w': a:winnr, 'b': a:bufnr})
-  call settabwinvar(a:tabnr, a:winnr, 'diminactive_orig_cc', orig_cc)
+  noautocmd call settabwinvar(a:tabnr, a:winnr, 'diminactive_orig_cc', orig_cc)
   " Save it also for the buffer, which is required for 'new | only | b#'.
   let s:buffer_cc[a:bufnr] = orig_cc
 
-  call settabwinvar(a:tabnr, a:winnr, 'diminactive_stored_orig', 1)
+  noautocmd call settabwinvar(a:tabnr, a:winnr, 'diminactive_stored_orig', 1)
   return 1
 endfun
 
@@ -434,7 +438,7 @@ fun! s:Leave(...)
     " Build &colorcolumn setting.
     let l:range = join(range(1, l:width), ',')
     call s:Debug('Applying colorcolumn')
-    call settabwinvar(tabnr, winnr, '&colorcolumn', l:range)
+    noautocmd call settabwinvar(tabnr, winnr, '&colorcolumn', l:range)
   else
     call s:Debug('Leave: colorcolumn: skipped/disabled.')
   endif
