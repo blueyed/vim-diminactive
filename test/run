@@ -3,6 +3,9 @@
 # Exit on errors.
 set -e
 
+# Allow to use specific vim binary.
+: {VIM_BIN:=vim}
+
 # Change to current dir (POSIXly).
 cd -P -- "$(dirname -- "$0")"
 
@@ -52,7 +55,7 @@ fi
 TMUX='tmux -L diminactive_tests'
 TMUX_SESSION_NAME="session_$RANDOM"
 # -X: do not connect to X server.
-VIM="HOME=/dev/null vim -XNu vimrc -i NONE"
+VIM="HOME=/dev/null ${VIM_BIN} -XNu vimrc -i NONE"
 
 # Use a stamp file to indicate test failure (inside tmux).
 STAMP_RET_TESTS=$(mktemp --tmpdir diminactive_tests_vim_exitcode_XXX)

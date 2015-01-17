@@ -1,3 +1,6 @@
+# Allow to override the vim to use, e.g. /opt/vim-travis/bin/vim.
+export VIM_BIN?=vim
+
 test:
 	test/run
 
@@ -8,8 +11,8 @@ testi:
 
 # Manually invoke Vim, using the test setup.
 # -X: do not connect to X server.
-manual:
-	cd test && HOME=/dev/null vim -XNu vimrc -i viminfo
+runvim:
+	cd test && HOME=/dev/null $(VIM_BIN) -XNu vimrc -i viminfo
 
 # Target for Travis (which sets CI=true already, but this allows to simulate it).
 travis: CI=true
