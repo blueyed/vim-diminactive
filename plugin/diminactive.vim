@@ -28,7 +28,7 @@ endif
 
 " Global configuration variables {{{1
 if !exists('g:diminactive')
-  let g:diminactive = 1
+  let g:diminactive = has('gui_running') || &t_Co >= 256
 endif
 
 " State of buffers original &syntax setting.
