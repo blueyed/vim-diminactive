@@ -3,7 +3,6 @@ Include: _setup.vader
 Before:
   tabnew
   let g:diminactive_max_cols = 10  " Shorter assertion errors.
-  let g:diminactive = 1            " Explicitly enable it (for Travis).
 After:
   tabclose!
 

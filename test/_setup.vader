@@ -1,6 +1,8 @@
 " Setup and helpers for all tests.
 
 Execute:
+  DimInactiveOn  " Explicitly enable it (for Travis).
+
   fun! AssertDimmed(...)
     let w = a:0 ? a:1 : winnr()
     let cmd = "AssertEqual '".escape(getwinvar(w, '&cc'), "'")
