@@ -151,6 +151,11 @@ fun! DimInactiveWinId(...)
   endif
   return 'w:'.winid
 endfun
+
+" Allow to inspect script-local variables.
+fun! _DimInactiveInspect(k)
+  return get(s:, a:k)
+endfun
 " }}}1
 
 " Functions {{{1
