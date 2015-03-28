@@ -10,7 +10,7 @@ This is a plugin for Vim to dim inactive windows.
 
 ## Screencast
 
-[Screencast](https://asciinema.org/a/13855)
+[![asciicast](https://asciinema.org/a/13855.png)](https://asciinema.org/a/13855)
 
 ## Methods
 
