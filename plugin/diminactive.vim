@@ -31,6 +31,14 @@ if !exists('g:diminactive')
   let g:diminactive = has('gui_running') || &t_Co >= 256
 endif
 
+" Blacklist of dimminig.
+if !exists('g:diminactive_buftype_blacklist')
+  let g:diminactive_buftype_blacklist = ['nofile', 'nowrite', 'acwrite', 'quickfix', 'help']
+endif
+if !exists('g:diminactive_filetype_blacklist')
+  let g:diminactive_filetype_blacklist = ['startify']
+endif
+
 " State of buffers original &syntax setting.
 let s:diminactive_orig_syntax = {}
 
@@ -46,8 +54,9 @@ if !exists('g:DimInactiveCallback')
       return 0
     endif
     let bt = getbufvar(a:bufnr, '&buftype')
-    let ft = getbufvar(a:bufnr, '&filetype') != 'startify'
-    if bt != '' && ft != 'startify'
+    let ft = getbufvar(a:bufnr, '&filetype')
+    if (index(g:diminactive_buftype_blacklist, bt) >= 0)
+          \ || (index(g:diminactive_filetype_blacklist, ft) >= 0)
       call s:Debug('Not dimming for buftype='.bt.', filetype='.ft.'.')
       return 0
     endif
@@ -181,7 +190,6 @@ fun! s:SetupWindows(...)
   endfor
 endfun
 
-
 fun! s:SetupTabs(...)
   let refresh = a:0 ? a:1 : 0
   " Init tabs: only the current one by default.
@@ -199,7 +207,6 @@ fun! s:SetupTabs(...)
   endfor
 endfun
 
-
 " Might return 0 if the tabpage went away.
 fun! s:bufnr(...)
   let tabnr = a:0 > 0 ? a:1 : tabpagenr()
@@ -210,7 +217,6 @@ fun! s:bufnr(...)
   endif
   return get(tabbuflist, winnr-1)
 endfun
-
 
 fun! s:set_syntax(b, s)
   call s:DebugIndent('set_syntax: set:'.a:s, {'b': a:b})
@@ -240,7 +246,6 @@ fun! s:set_syntax(b, s)
   endif
   let s:debug_indent -= 1
 endfun
-
 
 " Optional 3rd arg: bufnr
 " Return: 1 if buffer should get dimmed.
@@ -275,7 +280,6 @@ fun! s:should_get_dimmed(tabnr, winnr, ...)
   return g:diminactive
 endfun
 
-
 fun! s:DelegateForSessionLoad()
   call s:Debug('SessionLoad in effect, postponing setup until SessionLoadPost.')
   augroup DimInactive
@@ -283,7 +287,6 @@ fun! s:DelegateForSessionLoad()
     au SessionLoadPost * call s:Setup()
   augroup END
 endfun
-
 
 " Restore settings in the given window.
 fun! s:Enter(...)
@@ -325,7 +328,6 @@ fun! s:Enter(...)
 
   let s:debug_indent-=1
 endfun
-
 
 " Entering a window.
 " This might get called with the previous buffer / window settings (with
@@ -400,7 +402,6 @@ fun! s:store_orig_colorcolumn(tabnr, winnr, bufnr)
   return 1
 endfun
 
-
 " Setup 'colorcolumn', 'syntax' etc in the given window.
 fun! s:Leave(...)
   let tabnr = a:0 > 0 ? a:1 : tabpagenr()
@@ -454,7 +455,6 @@ fun! s:Leave(...)
   let s:debug_indent-=1
 endfun
 
-
 " Setup autocommands and init dimming.
 fun! s:Setup(...)
   let refresh = a:0 ? a:1 : 0
@@ -494,7 +494,6 @@ fun! s:Setup(...)
   let s:debug_indent-=1
 endfun
 " }}}1
-
 
 " Commands {{{1
 command! DimInactive          let g:diminactive=1  | call s:Setup()
