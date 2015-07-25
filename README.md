@@ -53,7 +53,7 @@ You can enable dimming inactive window on Vim's `FocusLost` event and re-activat
 window on `FocusGained` event by adding the following line to your `.vimrc`
 (default to 0):
 
-    let g:diminactive_use_syntax = 1
+    let g:diminactive_enable_focus = 1
 
 **NOTE**: If you're using tmux, you should install the [tmux-plugins/vim-tmux-focus-events][3]
 plugin for Vim and add `set -g focus-events on` to your `~/.tmux.conf` to enable
