@@ -84,6 +84,14 @@ if !exists('g:diminactive_max_cols')
   let g:diminactive_max_cols = 256
 endif
 
+" Enable dimming inactive window on FocusLost and FocusGained event
+" NOTE: If you're using tmux, you should install the 'tmux-plugins/vim-tmux-focus-events'
+" plugin for Vim and add 'set -g focus-events on' to your ~/.tmux.conf to enable
+" better support for FocusLost/FocusGained events when running Vim inside tmux.
+if !exists('g:diminactive_enable_focus')
+  let g:diminactive_enable_focus = 0
+endif
+
 " Debug helper {{{2
 let s:counter_bufs=0
 let s:counter_wins=0
@@ -489,6 +497,11 @@ fun! s:Setup(...)
       au WinEnter   * call s:Debug('EVENT: WinEnter', {'w': winnr()}) | call s:EnterWindow()
       au VimResized * call s:Debug('EVENT: VimResized') | call s:SetupWindows()
       au TabEnter   * call s:Debug('EVENT: TabEnter') | call s:SetupWindows()
+
+      if g:diminactive_enable_focus
+        au FocusGained * call s:Debug('EVENT: FocusGained', {'b': bufnr('%')}) | call s:Enter()
+        au FocusLost   * call s:Debug('EVENT: FocusLost', {'b': bufnr('%')})   | call s:Leave()
+      endif
     endif
   augroup END
   let s:debug_indent-=1
