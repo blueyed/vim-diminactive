@@ -47,6 +47,19 @@ disabled by default, and you can enable it using:
 
     let g:diminactive_use_syntax = 1
 
+### `FocusLost` and `FocusGained` events
+
+You can enable dimming inactive window on Vim's `FocusLost` event and re-activate
+window on `FocusGained` event by adding the following line to your `.vimrc`
+(default to 0):
+
+    let g:diminactive_enable_focus = 1
+
+**NOTE**: If you're using tmux, you should install the [tmux-plugins/vim-tmux-focus-events][3]
+plugin for Vim and add `set -g focus-events on` to your `~/.tmux.conf` to enable
+better support for Vim's `FocusLost` and `FocusGained` events when running Vim
+inside tmux.
+
 ## Commands
 
 The following commands are provided to control it:
@@ -127,3 +140,4 @@ suggestions made by joeytwiddle.
 
 [1]: https://groups.google.com/d/msg/vim_use/IJU-Vk-QLJE/xz4hjPjCRBUJ
 [2]: http://stackoverflow.com/a/12519572/15690
+[3]: https://github.com/tmux-plugins/vim-tmux-focus-events
