@@ -291,8 +291,8 @@ endfun
 fun! s:DelegateForSessionLoad()
   call s:Debug('SessionLoad in effect, postponing setup until SessionLoadPost.')
   augroup DimInactive
-    au!
-    au SessionLoadPost * call s:Setup()
+    autocmd!
+    autocmd SessionLoadPost * call s:Setup()
   augroup END
 endfun
 
@@ -473,8 +473,8 @@ fun! s:Setup(...)
   if has('vim_starting')
     call s:Debug('vim_starting: postponing Setup().')
     augroup DimInactive
-      au!
-      exec 'au VimEnter * call s:Setup('.refresh.')'
+      autocmd!
+      exec 'autocmd VimEnter * call s:Setup('.refresh.')'
     augroup END
     let s:debug_indent-=1
     return
@@ -487,20 +487,20 @@ fun! s:Setup(...)
 
   " Setup autogroups, after initializing windows.
   augroup DimInactive
-    au!
+    autocmd!
     if g:diminactive
       " Mark left windows, and handle them in WinEnter, _after_ entering the
       " new one (otherwise &colorcolumn settings might get copied over).
-      au WinLeave   * call s:Debug('EVENT: WinLeave', {'w': winnr()})
+      autocmd WinLeave   * call s:Debug('EVENT: WinLeave', {'w': winnr()})
             \ | let w:diminactive_left_window = 1
-      au BufEnter   * call s:Debug('EVENT: BufEnter', {'b': bufnr('%')}) | call s:Enter()
-      au WinEnter   * call s:Debug('EVENT: WinEnter', {'w': winnr()}) | call s:EnterWindow()
-      au VimResized * call s:Debug('EVENT: VimResized') | call s:SetupWindows()
-      au TabEnter   * call s:Debug('EVENT: TabEnter') | call s:SetupWindows()
+      autocmd BufEnter   * call s:Debug('EVENT: BufEnter', {'b': bufnr('%')}) | call s:Enter()
+      autocmd WinEnter   * call s:Debug('EVENT: WinEnter', {'w': winnr()}) | call s:EnterWindow()
+      autocmd VimResized * call s:Debug('EVENT: VimResized') | call s:SetupWindows()
+      autocmd TabEnter   * call s:Debug('EVENT: TabEnter') | call s:SetupWindows()
 
       if g:diminactive_enable_focus
-        au FocusGained * call s:Debug('EVENT: FocusGained', {'b': bufnr('%')}) | call s:Enter()
-        au FocusLost   * call s:Debug('EVENT: FocusLost', {'b': bufnr('%')})   | call s:Leave()
+        autocmd FocusGained * call s:Debug('EVENT: FocusGained', {'b': bufnr('%')}) | call s:Enter()
+        autocmd FocusLost   * call s:Debug('EVENT: FocusLost', {'b': bufnr('%')})   | call s:Leave()
       endif
     endif
   augroup END
