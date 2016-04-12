@@ -354,7 +354,9 @@ fun! s:EnterWindow(...)
   call s:Debug('Handle left window(s)')
   for w in range(1, tabpagewinnr(tabnr, '$'))
     if gettabwinvar(tabnr, w, 'diminactive_left_window')
-      call s:Leave(tabnr, w)
+      if w != winnr
+        call s:Leave(tabnr, w)
+      endif
       noautocmd call settabwinvar(tabnr, w, 'diminactive_left_window', 0)
     endif
   endfor
