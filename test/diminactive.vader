@@ -116,11 +116,11 @@ Execute (Syntax with new):
   AssertEqual getwinvar(1, '&syntax'), 'off'
   AssertEqual getwinvar(2, '&syntax'), ''
 
-Execute (TODO: Syntax with split):
+Execute (Syntax with split (same buffer)):
   DimInactiveSyntaxOn
   AssertEqual getwinvar(1, '&syntax'), ''
   sp
-  AssertEqual getwinvar(1, '&syntax'), 'off'
+  AssertEqual getwinvar(1, '&syntax'), ''
   AssertEqual getwinvar(2, '&syntax'), ''
 
 
