@@ -264,8 +264,8 @@ fun! s:should_get_dimmed(tabnr, winnr, ...)
   if exists("*DimInactiveCallback")
     let cb_r = DimInactiveCallback(a:tabnr, a:winnr, bufnr)
     if !cb_r
-      call s:Debug('should_get_dimmed: callback returned '.string(cb_r)
-            \ .': not dimming', {'t':a:tabnr, 'w':a:winnr, 'b':bufnr})
+      call s:Debug('should not get dimmed: callback returned '.string(cb_r),
+            \ {'t':a:tabnr, 'w':a:winnr, 'b':bufnr})
       return 0
     endif
   endif
@@ -495,10 +495,14 @@ fun! s:Setup(...)
       " new one (otherwise &colorcolumn settings might get copied over).
       autocmd WinLeave   * call s:Debug('EVENT: WinLeave', {'w': winnr()})
             \ | let w:diminactive_left_window = 1
-      autocmd BufEnter   * call s:Debug('EVENT: BufEnter', {'b': bufnr('%')}) | call s:Enter()
-      autocmd WinEnter   * call s:Debug('EVENT: WinEnter', {'w': winnr()}) | call s:EnterWindow()
-      autocmd VimResized * call s:Debug('EVENT: VimResized') | call s:SetupWindows()
-      autocmd TabEnter   * call s:Debug('EVENT: TabEnter') | call s:SetupWindows()
+      autocmd BufEnter   * call s:Debug('EVENT: BufEnter', {'b': bufnr('%')})
+            \ | call s:Enter()
+      autocmd WinEnter   * call s:Debug('EVENT: WinEnter', {'w': winnr()})
+            \ | call s:EnterWindow()
+      autocmd VimResized * call s:Debug('EVENT: VimResized')
+            \ | call s:SetupWindows()
+      autocmd TabEnter   * call s:Debug('EVENT: TabEnter')
+            \ | call s:SetupWindows()
 
       if g:diminactive_enable_focus
         autocmd FocusGained * call s:Debug('EVENT: FocusGained', {'b': bufnr('%')}) | call s:Enter()
