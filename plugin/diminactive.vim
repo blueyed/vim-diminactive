@@ -320,7 +320,7 @@ fun! s:Enter(...)
       if index(checked, b) != -1
         continue
       endif
-      if b != bufnr && s:should_get_dimmed(tabnr, w, b)
+      if b != bufnr && b != winbufnr('%') && s:should_get_dimmed(tabnr, w, b)
         call s:set_syntax(b, 0)
       endif
       let w = w+1
@@ -459,7 +459,7 @@ fun! s:Leave(...)
     call s:Debug('Leave: colorcolumn: skipped/disabled.')
   endif
 
-  if g:diminactive_use_syntax
+  if g:diminactive_use_syntax && bufnr != winbufnr('%')
     call s:set_syntax(bufnr, 0)
   endif
   let s:debug_indent-=1
