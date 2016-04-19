@@ -7,7 +7,7 @@ set -e
 : ${VIM_BIN:=vim}
 
 # Change to current dir (POSIXly).
-cd -P -- "$(dirname -- "$0")"
+CDPATH= cd -P -- "$(dirname -- "$0")"
 
 # Get args for Vader. This allows to call a specific test file only.
 if [ -z "$@" ]; then
