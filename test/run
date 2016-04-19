@@ -4,14 +4,15 @@
 set -e
 
 # Allow to use specific vim binary.
-: ${VIM_BIN:=vim}
+: "${VIM_BIN:=vim}"
 
 # Change to current dir (POSIXly).
-CDPATH= cd -P -- "$(dirname -- "$0")"
+unset CDPATH
+cd -P -- "$(dirname -- "$0")"
 
 # Get args for Vader. This allows to call a specific test file only.
 if [ -z "$@" ]; then
-  GLOBIGNORE=_*
+  GLOBIGNORE='_*'
   VADER_ARGS=(*.vader)
 else
   # Use provided args, without "test/" prefix.
@@ -22,15 +23,15 @@ else
 fi
 
 # Keep Vader results open in Vim? (used by `make testi`)
-: ${VADER_KEEP:=0}
+: "${VADER_KEEP:=0}"
 
 # Attach to tmux? Defaults to $VADER_KEEP.
-: ${ATTACH_TO_TMUX:=$VADER_KEEP}
+: "${ATTACH_TO_TMUX:=$VADER_KEEP}"
 
 # How long to wait for Vim to finish running the tests (in seconds)?
-: ${TIMEOUT:=5}
+: "${TIMEOUT:=5}"
 # How long to wait for Vim to listen for commands (startup, in seconds)?
-: ${TIMEOUT_LISTEN:=3}
+: "${TIMEOUT_LISTEN:=3}"
 
 # Attach to tmux on timeout?
 if [ "$CI" != true ]; then
@@ -41,12 +42,12 @@ fi
 
 # Look for existing vader installation.
 vader=( ${HOME}/.vim/*bundle*/vader*/plugin/vader.vim )
-if [ -f ${vader[0]} ]; then
+if [ -f "${vader[0]}" ]; then
     # Remove "plugin/vader.vim" suffix.
     vader=${vader[0]%/*/*}
 fi
-if [ -d $vader ]; then
-    [[ ! -L vader.vim ]] && ln -s $vader vader.vim
+if [ -d "$vader" ]; then
+    [[ ! -L vader.vim ]] && ln -s "$vader" vader.vim
 else
     git clone https://github.com/junegunn/vader.vim.git
 fi
@@ -63,8 +64,8 @@ STAMP_RET_TESTS=$(mktemp --tmpdir diminactive_tests_vim_exitcode_XXX)
 TMUX_PANE_CONTENTS=$(mktemp --tmpdir diminactive_tmux_contents_XXX)
 
 
-echo Starting tmux session.
-echo To inspect it manually: $TMUX attach -t $TMUX_SESSION_NAME
+echo "Starting tmux session."
+echo "To inspect it manually: $TMUX attach -t $TMUX_SESSION_NAME"
 
 # Build the tmux command.
 # It captures the exit code of vim.
@@ -85,12 +86,12 @@ fi
 # created, or from a running tmux instance.
 cat_tmux_contents() {
   f=$TMUX_PANE_CONTENTS
-  if ! [ -s $f ]; then
-    $TMUX capture-pane -S -32000 \; save-buffer $f
+  if ! [ -s "$f" ]; then
+    $TMUX capture-pane -S -32000 \; save-buffer "$f"
   fi
   echo "===== tmux pane contents ================================="
-  cat $f
-  rm $f
+  cat "$f"
+  rm "$f"
 }
 
 $TMUX new-session -s $TMUX_SESSION_NAME -d "$TMUX_SESSION_CMD"
@@ -108,7 +109,7 @@ for (( max_wait=$((TIMEOUT_LISTEN * 10)); --max_wait; )); do
 
   if [ -s "$TMUX_PANE_CONTENTS" ]; then
     # tmux pane contents has been created, maybe Vim failed to start?!
-    printf "\ntmux pane contents ($TMUX_PANE_CONTENTS) appeared, abort waiting."
+    printf "\ntmux pane contents (%s) appeared, abort waiting." "$TMUX_PANE_CONTENTS"
     max_wait=0
     break
   fi
@@ -180,6 +181,6 @@ if [ -s "$STAMP_RET_TESTS" ]; then
   fi
   rm "$STAMP_RET_TESTS"
 fi
-exit $ret
+exit "$ret"
 
 exit 4
