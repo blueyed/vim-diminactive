@@ -4,7 +4,7 @@
 set -e
 
 # Allow to use specific vim binary.
-: {VIM_BIN:=vim}
+: ${VIM_BIN:=vim}
 
 # Change to current dir (POSIXly).
 cd -P -- "$(dirname -- "$0")"
