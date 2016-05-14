@@ -504,9 +504,38 @@ fun! s:Setup(...)
       autocmd TabEnter   * call s:Debug('EVENT: TabEnter')
             \ | call s:SetupWindows()
 
+      fun! s:get_tmux_window()
+        return get(systemlist('tmux display -p "#{window_id}"'), 0, '')
+      endfun
+      fun! s:handle_focus_event(event) abort
+        if len($TMUX)
+          " Skip focus events on tmux when moving to or coming from another
+          " window.
+          " The tmux command for the FocusLost event will have the new
+          " window/pane information already.
+          let l:cur_tmux_win = s:get_tmux_window()
+          if a:event == 'FocusGained'
+            let s:tmux_window = l:cur_tmux_win
+          else
+            let s:tmux_focuslost_skipped = (l:cur_tmux_win != s:tmux_window)
+          endif
+          if get(s:, 'tmux_focuslost_skipped', 0)
+            call s:Debug('tmux: skipping '.a:event.', because of differnt window.')
+            return
+          endif
+        endif
+
+        call s:Debug('EVENT: '.a:event, {'b': bufnr('%')})
+        if a:event == 'FocusGained'
+          call s:Enter()
+        else
+          call s:Leave()
+        endif
+      endfun
+
       if g:diminactive_enable_focus
-        autocmd FocusGained * call s:Debug('EVENT: FocusGained', {'b': bufnr('%')}) | call s:Enter()
-        autocmd FocusLost   * call s:Debug('EVENT: FocusLost', {'b': bufnr('%')})   | call s:Leave()
+        autocmd FocusGained * call s:handle_focus_event('FocusGained')
+        autocmd FocusLost   * call s:handle_focus_event('FocusLost')
       endif
     endif
   augroup END
