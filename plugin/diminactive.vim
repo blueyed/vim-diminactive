@@ -504,23 +504,21 @@ fun! s:Setup(...)
       autocmd TabEnter   * call s:Debug('EVENT: TabEnter')
             \ | call s:SetupWindows()
 
-      fun! s:get_tmux_window()
-        return get(systemlist('tmux display -p "#{window_id}"'), 0, '')
-      endfun
       fun! s:handle_focus_event(event) abort
         if len($TMUX)
           " Skip focus events on tmux when moving to or coming from another
           " window.
           " The tmux command for the FocusLost event will have the new
           " window/pane information already.
-          let l:cur_tmux_win = s:get_tmux_window()
-          if a:event == 'FocusGained'
-            let s:tmux_window = l:cur_tmux_win
+          let cur_tmux_win = get(systemlist(
+                \ 'tmux display -p "#{window_id}"'), 0, '')
+          if a:event ==# 'FocusGained'
+            let s:tmux_window = cur_tmux_win
           else
-            let s:tmux_focuslost_skipped = (l:cur_tmux_win != s:tmux_window)
+            let s:skip_focuslost = (cur_tmux_win != get(s:, 'tmux_window', 0))
           endif
-          if get(s:, 'tmux_focuslost_skipped', 0)
-            call s:Debug('tmux: skipping '.a:event.', because of differnt window.')
+          if get(s:, 'skip_focuslost', 0)
+            call s:Debug('tmux: skipping '.a:event.', because of different window.')
             return
           endif
         endif
