@@ -1,4 +1,5 @@
 language: vim
+sudo: required
 
 install:
   - sudo add-apt-repository -y ppa:pi-rho/dev
