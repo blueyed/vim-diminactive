@@ -13,13 +13,13 @@
 "       non-current tab/win. See test "Syntax with new".
 
 " Plugin boilerplate {{{1
-if exists("g:loaded_diminactive")
+if exists('g:loaded_diminactive')
   finish
 endif
 let g:loaded_diminactive = 1
 
-let s:save_cpo = &cpo
-set cpo&vim
+let s:save_cpo = &cpoptions
+set cpoptions&vim
 " }}}1
 
 if !exists('+colorcolumn')
@@ -141,7 +141,7 @@ let s:buffer_ids = {}
 fun! DimInactiveBufId(...)
   let b = a:0 ? a:1 : bufnr('%')
   let bufid = get(s:buffer_ids, b)  " Use a dict, because buffers cannot store a setting when hidden.
-  if bufid == ""
+  if bufid ==# ''
     let s:counter_bufs+=1
     let bufid = s:counter_bufs
     let s:buffer_ids[b] = bufid
@@ -157,7 +157,7 @@ fun! DimInactiveWinId(...)
   else
     let winid = getwinvar(w, 'diminactive_id')
   endif
-  if winid == ''
+  if winid ==# ''
     let s:counter_wins+=1
     let winid = s:counter_wins
     if a:0 > 1 && a:2 != -1
@@ -167,11 +167,6 @@ fun! DimInactiveWinId(...)
     endif
   endif
   return 'w:'.winid
-endfun
-
-" Allow to inspect script-local variables.
-fun! _DimInactiveInspect(k)
-  return get(s:, a:k)
 endfun
 " }}}1
 
@@ -243,7 +238,7 @@ fun! s:set_syntax(b, s)
       call s:Debug('set_syntax: off: should be off already!')
     else
       let syntax = getbufvar(a:b, '&syntax')
-      if syntax != 'off'
+      if syntax !=# 'off'
         call s:Debug('set_syntax: storing')
         let s:diminactive_orig_syntax[a:b] = syntax
         call setbufvar(a:b, '&syntax', 'off')
@@ -261,7 +256,7 @@ fun! s:should_get_dimmed(tabnr, winnr, ...)
   let bufnr = a:0 ? a:1 : s:bufnr(a:tabnr, a:winnr)
 
   let cb_r = 1
-  if exists("*DimInactiveCallback")
+  if exists('*DimInactiveCallback')
     let cb_r = DimInactiveCallback(a:tabnr, a:winnr, bufnr)
     if !cb_r
       call s:Debug('should not get dimmed: callback returned '.string(cb_r),
@@ -538,6 +533,6 @@ command! DimInactiveColorcolumnOff let g:diminactive_use_colorcolumn=0 | call s:
 call s:Setup()
 
 " Local settings {{{1
-let &cpo = s:save_cpo
+let &cpoptions = s:save_cpo
 " vim: ft=vim sw=2 et:
 " }}}1
