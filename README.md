@@ -102,20 +102,35 @@ Enable for this buffer.
 Reset config on buffer level.
 
 ## Filtering buffers
-The dimming can be disabled for given `buftype` or `filetype` with the
-variables above.
+
+You can disable the dimming based on `buftype` or `filetype` with the
+following settings.
 
 ### `g:diminactive_buftype_blacklist`
-If the `buftype` of the current buffer is in the list, then dimming will be
-disabled. Default value:
+
+A list of buffer types where dimming gets disabled. Default:
 
     let g:diminactive_buftype_blacklist = ['nofile', 'nowrite', 'acwrite', 'quickfix', 'help']
 
 ### `g:diminactive_filetype_blacklist`
-If the `filetype` of the current buffer is in the list, then dimming will be
-disabled. Default value:
+
+A list of filetypes where dimming gets disabled. Default:
 
     let g:diminactive_filetype_blacklist = ['startify']
+
+### `g:diminactive_buftype_whitelist`
+
+A list of buffer types where dimming gets enabled (overrides the blacklist).
+Default:
+
+    let g:diminactive_buftype_whitelist = []
+
+### `g:diminactive_filetype_whitelist`
+
+A list of filetypes where dimming gets enabled (overrides the whitelist).
+Default:
+
+    let g:diminactive_filetype_whitelist = ['dirvish']
 
 ## Credits
 
