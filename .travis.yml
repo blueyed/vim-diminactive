@@ -1,6 +1,10 @@
 language: vim
 sudo: required
 
+branches:
+  only:
+    - master
+
 install:
   - travis_retry sudo add-apt-repository -y ppa:pi-rho/dev
   # # Not for Precise.. :/
