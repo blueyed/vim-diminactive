@@ -1,7 +1,7 @@
 # Allow to override the vim to use, e.g. /opt/vim-travis/bin/vim.
 export VIM_BIN?=vim
 
-test:
+test: | test/vader.vim
 	test/run
 
 # Interactive tests, keep Vader open.
@@ -18,7 +18,10 @@ runvim:
 travis: CI=true
 travis: test
 
-# Targets for .vader files, absolute and relative.
+test/vader.vim:
+	git clone --depth=1 -b display-source-with-exceptions https://github.com/blueyed/vader.vim $@
+
+# Add targets for .vader files, absolute and relative.
 # This can be used with `b:dispatch = ':Make %'` in Vim.
 TESTS:=$(filter-out test/_%.vader,$(wildcard test/*.vader))
 uniq = $(if $1,$(firstword $1) $(call uniq,$(filter-out $(firstword $1),$1)))
