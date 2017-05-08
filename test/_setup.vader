@@ -3,7 +3,7 @@
 Execute:
   DimInactiveOn  " Explicitly enable it (for Travis).
 
-  fun! _Assert(cmd, ...)
+  function! s:Assert(cmd, ...)
     let w = a:0 ? a:1 : winnr()
     if g:diminactive_use_colorcolumn
       let cmd = a:cmd." '".escape(getwinvar(w, '&cc'), "'")
@@ -21,15 +21,15 @@ Execute:
       endfor
       exec cmd
     endif
-  endfun
+  endfunction
 
-  fun! AssertDimmed(...)
-    call call('_Assert', ['AssertEqual'] + a:000)
-  endfun
+  function! AssertDimmed(...)
+    call call('s:Assert', ['AssertEqual'] + a:000)
+  endfunction
 
-  fun! AssertNotDimmed(...)
-    call call('_Assert', ['AssertNotEqual'] + a:000)
-  endfun
+  function! AssertNotDimmed(...)
+    call call('s:Assert', ['AssertNotEqual'] + a:000)
+  endfunction
 
   command! -nargs=+ AssertDimmed :call AssertDimmed(<args>)
   command! -nargs=+ AssertNotDimmed :call AssertNotDimmed(<args>)
