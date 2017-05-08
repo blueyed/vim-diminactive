@@ -39,6 +39,14 @@ if !exists('g:diminactive_filetype_blacklist')
   let g:diminactive_filetype_blacklist = ['startify']
 endif
 
+" Whitelist, overriding blacklist.
+if !exists('g:diminactive_buftype_whitelist')
+  let g:diminactive_buftype_whitelist = []
+endif
+if !exists('g:diminactive_filetype_whitelist')
+  let g:diminactive_filetype_whitelist = ['dirvish']
+endif
+
 " State of buffers original &syntax setting.
 let s:diminactive_orig_syntax = {}
 
@@ -55,8 +63,10 @@ if !exists('g:DimInactiveCallback')
     endif
     let bt = getbufvar(a:bufnr, '&buftype')
     let ft = getbufvar(a:bufnr, '&filetype')
-    if (index(g:diminactive_buftype_blacklist, bt) >= 0)
-          \ || (index(g:diminactive_filetype_blacklist, ft) >= 0)
+    if (index(g:diminactive_buftype_blacklist, bt) != -1
+          \ || index(g:diminactive_filetype_blacklist, ft) != -1)
+          \ && (index(g:diminactive_buftype_whitelist, bt) == -1
+          \     && index(g:diminactive_filetype_whitelist, ft) == -1)
       call s:Debug('Not dimming for buftype='.bt.', filetype='.ft.'.')
       return 0
     endif
