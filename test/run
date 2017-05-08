@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+#
+# This should be run through the Makefile, e.g. by using 'make test'.
 
 # Exit on errors.
 set -e
@@ -38,18 +40,6 @@ if [ "$CI" != true ]; then
   ATTACH_TO_TMUX_ON_TIMEOUT=1
 else
   ATTACH_TO_TMUX_ON_TIMEOUT=0
-fi
-
-# Look for existing vader installation.
-vader=( ${HOME}/.vim/*bundle*/vader*/plugin/vader.vim )
-if [ -f "${vader[0]}" ]; then
-    # Remove "plugin/vader.vim" suffix.
-    vader=${vader[0]%/*/*}
-fi
-if [ -d "$vader" ]; then
-    [[ ! -L vader.vim ]] && ln -s "$vader" vader.vim
-else
-    git clone https://github.com/junegunn/vader.vim.git
 fi
 
 # Use a separate tmux listen socket.
