@@ -1,7 +1,10 @@
 " Setup and helpers for all tests.
 
 Execute:
-  DimInactiveOn  " Explicitly enable it (for Travis).
+  " Explicitly configure it (for Travis).
+  let g:diminactive_use_colorcolumn = 1
+  let g:diminactive_use_syntax = 0
+  DimInactiveOn
 
   function! s:Assert(cmd, ...)
     let w = a:0 ? a:1 : winnr()

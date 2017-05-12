@@ -22,16 +22,22 @@ let s:save_cpo = &cpoptions
 set cpoptions&vim
 " }}}1
 
-if !exists('+colorcolumn')
-  " TODO: error
-endif
-
 " Global configuration variables {{{1
 if !exists('g:diminactive')
   let g:diminactive = has('gui_running') || &t_Co >= 256
 endif
 
-" Blacklist of dimminig.
+" Set 'colorcolumn' for inactive buffers?
+if !exists('g:diminactive_use_colorcolumn')
+  let g:diminactive_use_colorcolumn = has('gui_running') || &t_Co >= 256
+endif
+
+" Use ':syntax clear' for inactive buffers?
+if !exists('g:diminactive_use_syntax')
+  let g:diminactive_use_syntax = !(exists('+colorcolumn') && (has('gui_running') || &t_Co >= 256))
+endif
+
+" Blacklist.
 if !exists('g:diminactive_buftype_blacklist')
   let g:diminactive_buftype_blacklist = ['nofile', 'nowrite', 'acwrite', 'quickfix', 'help']
 endif
@@ -46,12 +52,6 @@ endif
 if !exists('g:diminactive_filetype_whitelist')
   let g:diminactive_filetype_whitelist = ['dirvish']
 endif
-
-" State of buffers original &syntax setting.
-let s:diminactive_orig_syntax = {}
-
-" Dict of &cc setting per buffer, used when it gets hidden.
-let s:buffer_cc = {}
 
 " Callback to decide if a window should get dimmed. {{{2
 " The default disables dimming for &diff windows, and non-normal buffers.
@@ -78,16 +78,6 @@ if !exists('g:diminactive_debug')
   let g:diminactive_debug = 0
 endif
 
-" Set 'colorcolumn' for inactive buffers?
-if !exists('g:diminactive_use_colorcolumn')
-  let g:diminactive_use_colorcolumn = 1
-endif
-
-" Use ':syntax clear' for inactive buffers?
-if !exists('g:diminactive_use_syntax')
-  let g:diminactive_use_syntax = 0
-endif
-
 " Maximum number of entries in &colorcolumn, when &wrap is enabled.
 " NOTE: A maximum of 256 columns can be highlighted (Vim limitation; 7.4.192).
 if !exists('g:diminactive_max_cols')
@@ -101,6 +91,14 @@ endif
 if !exists('g:diminactive_enable_focus')
   let g:diminactive_enable_focus = 0
 endif
+" }}}1
+
+" Functions {{{1
+" State of buffers original &syntax setting.
+let s:diminactive_orig_syntax = {}
+
+" Dict of &cc setting per buffer, used when it gets hidden.
+let s:buffer_cc = {}
 
 " Debug helper {{{2
 let s:counter_bufs=0
@@ -178,9 +176,6 @@ fun! DimInactiveWinId(...)
   endif
   return 'w:'.winid
 endfun
-" }}}1
-
-" Functions {{{1
 
 " Setup windows: call s:Enter/s:Leave on all windows.
 " With g:diminactive=0, it will call s:Enter on all of them.
