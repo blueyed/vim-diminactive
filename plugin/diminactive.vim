@@ -94,8 +94,6 @@ endif
 " }}}1
 
 " Functions {{{1
-" State of buffers original &syntax setting.
-let s:diminactive_orig_syntax = {}
 
 " Dict of &cc setting per buffer, used when it gets hidden.
 let s:buffer_cc = {}
@@ -228,24 +226,23 @@ endfun
 
 fun! s:set_syntax(b, s)
   call s:DebugIndent('set_syntax: set:'.a:s, {'b': a:b})
+  let orig_syntax = getbufvar(a:b, '_diminactive_orig_syntax', '')
   if a:s
-    let orig_syntax = get(s:diminactive_orig_syntax, a:b, '')
-    if len(orig_syntax)
+    if !empty(orig_syntax)
       call s:Debug('Restoring orig_syntax: '.orig_syntax, {'b': a:b})
       call setbufvar(a:b, '&syntax', orig_syntax)
-      call remove(s:diminactive_orig_syntax, a:b)
+      call setbufvar(a:b, '_diminactive_orig_syntax', '')
     else
       call s:Debug('set_syntax: nothing to restore!', {'b': a:b})
     endif
   else
-    let orig_syntax = get(s:diminactive_orig_syntax, a:b, '')
-    if orig_syntax
+    if !empty(orig_syntax)
       call s:Debug('set_syntax: off: should be off already!')
     else
       let syntax = getbufvar(a:b, '&syntax')
       if syntax !=# 'off'
         call s:Debug('set_syntax: storing')
-        let s:diminactive_orig_syntax[a:b] = syntax
+        call setbufvar(a:b, '_diminactive_orig_syntax', syntax)
         call setbufvar(a:b, '&syntax', 'off')
       else
         call s:Debug('set_syntax: already off!')
