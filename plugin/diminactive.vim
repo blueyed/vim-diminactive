@@ -226,7 +226,7 @@ endfun
 
 fun! s:set_syntax(b, s)
   call s:DebugIndent('set_syntax: set:'.a:s, {'b': a:b})
-  let orig_syntax = getbufvar(a:b, '_diminactive_orig_syntax', '')
+  let orig_syntax = getbufvar(a:b, '_diminactive_orig_syntax')
   if a:s
     if !empty(orig_syntax)
       call s:Debug('Restoring orig_syntax: '.orig_syntax, {'b': a:b})
