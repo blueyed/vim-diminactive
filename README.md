@@ -151,6 +151,7 @@ suggestions made by joeytwiddle.
   allows to (un-)maximize the current window.
 * [goyo.vim](https://github.com/junegunn/goyo.vim) provides distraction-free
   writing in Vim.
+* [tmux-inactive-panes](https://github.com/jtbairdsr/tmux-inactive-panes) for the ones that depend on tmux for splitting their terminals
 
 [1]: https://groups.google.com/d/msg/vim_use/IJU-Vk-QLJE/xz4hjPjCRBUJ
 [2]: http://stackoverflow.com/a/12519572/15690
